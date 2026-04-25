@@ -1,0 +1,2420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⚡ BLACKOUT CHAIN — Real-Time Visual Analytics | Smart Grid Network</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Exo+2:wght@300;400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --plasma: #00f5ff;
+    --ember: #ff4500;
+    --volt: #aaff00;
+    --storm: #7b2fff;
+    --gold: #ffd700;
+    --critical: #ff1a1a;
+    --warn: #ff8800;
+    --safe: #00ff88;
+    --bg-deep: #00030a;
+    --bg-panel: rgba(0,8,25,0.85);
+    --bg-card: rgba(0,15,40,0.75);
+    --border-glow: rgba(0,245,255,0.25);
+    --text-bright: #e8f4ff;
+    --text-dim: #6a8fa8;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg-deep);
+    color: var(--text-bright);
+    font-family: 'Exo 2', sans-serif;
+    overflow-x: hidden;
+    min-height: 100vh;
+  }
+
+  /* ═══ ANIMATED GRID BACKGROUND ═══ */
+  #bg-canvas {
+    position: fixed;
+    top:0; left:0;
+    width:100%; height:100%;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  .content-wrap {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ═══ HEADER ═══ */
+  .header {
+    background: linear-gradient(180deg, rgba(0,0,5,0.98) 0%, rgba(0,5,20,0.9) 100%);
+    border-bottom: 1px solid var(--plasma);
+    padding: 18px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky; top:0; z-index:100;
+    box-shadow: 0 0 40px rgba(0,245,255,0.15), 0 2px 0 var(--plasma);
+  }
+
+  .header-brand {
+    display: flex; align-items: center; gap: 16px;
+  }
+
+  .logo-icon {
+    width: 52px; height: 52px;
+    background: linear-gradient(135deg, var(--ember), var(--gold));
+    clip-path: polygon(50% 0%, 80% 25%, 100% 50%, 80% 75%, 50% 100%, 20% 75%, 0% 50%, 20% 25%);
+    display: flex; align-items:center; justify-content:center;
+    animation: logo-pulse 2s ease-in-out infinite;
+    font-size: 22px;
+  }
+
+  @keyframes logo-pulse {
+    0%,100% { box-shadow: 0 0 20px rgba(255,69,0,0.6); transform: scale(1); }
+    50% { box-shadow: 0 0 40px rgba(255,215,0,0.9); transform: scale(1.05); }
+  }
+
+  .brand-text h1 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.4rem;
+    font-weight: 900;
+    background: linear-gradient(90deg, var(--plasma), var(--volt), var(--plasma));
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: text-shimmer 3s linear infinite;
+    letter-spacing: 3px;
+  }
+
+  @keyframes text-shimmer {
+    0% { background-position: 0% center; }
+    100% { background-position: 200% center; }
+  }
+
+  .brand-text p {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+    margin-top: 2px;
+  }
+
+  .header-stats {
+    display: flex; gap: 24px; align-items: center;
+  }
+
+  .hstat {
+    text-align: center;
+  }
+
+  .hstat-val {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--plasma);
+    text-shadow: 0 0 15px var(--plasma);
+  }
+
+  .hstat-val.red { color: var(--critical); text-shadow: 0 0 15px var(--critical); }
+  .hstat-val.green { color: var(--volt); text-shadow: 0 0 15px var(--volt); }
+  .hstat-val.orange { color: var(--warn); text-shadow: 0 0 15px var(--warn); }
+
+  .hstat-label {
+    font-size: 0.58rem;
+    color: var(--text-dim);
+    letter-spacing: 1.5px;
+    font-family: 'Share Tech Mono', monospace;
+    text-transform: uppercase;
+  }
+
+  .live-badge {
+    display: flex; align-items: center; gap: 6px;
+    background: rgba(255,26,26,0.15);
+    border: 1px solid var(--critical);
+    border-radius: 4px;
+    padding: 6px 12px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--critical);
+    letter-spacing: 2px;
+  }
+
+  .live-dot {
+    width: 8px; height: 8px;
+    background: var(--critical);
+    border-radius: 50%;
+    animation: blink 1s step-end infinite;
+    box-shadow: 0 0 8px var(--critical);
+  }
+
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+  .header-time {
+    font-family: 'Orbitron', monospace;
+    font-size: 1rem;
+    color: var(--plasma);
+    text-shadow: 0 0 10px var(--plasma);
+    letter-spacing: 2px;
+  }
+
+  /* ═══ CONTROLS BAR ═══ */
+  .controls-bar {
+    background: rgba(0,5,20,0.95);
+    border-bottom: 1px solid rgba(0,245,255,0.1);
+    padding: 12px 32px;
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .ctrl-group {
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  .ctrl-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  select, .tab-btn {
+    background: rgba(0,245,255,0.05);
+    border: 1px solid rgba(0,245,255,0.25);
+    color: var(--text-bright);
+    padding: 6px 14px;
+    border-radius: 4px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.7rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    outline: none;
+    letter-spacing: 0.5px;
+  }
+
+  select:hover, select:focus { border-color: var(--plasma); box-shadow: 0 0 12px rgba(0,245,255,0.2); }
+  select option { background: #000d20; }
+
+  .tab-btn {
+    transition: all 0.25s;
+  }
+  .tab-btn:hover { border-color: var(--plasma); color: var(--plasma); }
+  .tab-btn.active {
+    background: var(--plasma);
+    color: #000;
+    border-color: var(--plasma);
+    font-weight: 700;
+    box-shadow: 0 0 20px rgba(0,245,255,0.4);
+  }
+
+  .tab-btn.ember { --btn-c: var(--ember); }
+  .tab-btn.volt-c { --btn-c: var(--volt); }
+
+  .sep { width:1px; height:28px; background: rgba(0,245,255,0.15); }
+
+  /* ═══ ALERT TICKER ═══ */
+  .alert-ticker {
+    background: rgba(255,69,0,0.08);
+    border-top: 1px solid rgba(255,69,0,0.3);
+    border-bottom: 1px solid rgba(255,69,0,0.3);
+    padding: 6px 0;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  .ticker-inner {
+    display: inline-block;
+    animation: ticker-scroll 60s linear infinite;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--warn);
+    letter-spacing: 1px;
+  }
+
+  @keyframes ticker-scroll {
+    0% { transform: translateX(100vw); }
+    100% { transform: translateX(-100%); }
+  }
+
+  /* ═══ MAIN LAYOUT ═══ */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 280px 1fr 280px;
+    gap: 0;
+    min-height: calc(100vh - 160px);
+  }
+
+  /* ═══ SIDEBAR ═══ */
+  .sidebar {
+    background: rgba(0,5,18,0.9);
+    border-right: 1px solid rgba(0,245,255,0.1);
+    padding: 20px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .sidebar-right {
+    border-right: none;
+    border-left: 1px solid rgba(0,245,255,0.1);
+  }
+
+  /* ═══ PANELS ═══ */
+  .panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border-glow);
+    border-radius: 6px;
+    padding: 14px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.3s, box-shadow 0.3s;
+  }
+
+  .panel:hover {
+    border-color: rgba(0,245,255,0.5);
+    box-shadow: 0 0 25px rgba(0,245,255,0.08), inset 0 0 25px rgba(0,245,255,0.03);
+  }
+
+  .panel::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--plasma), transparent);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .panel:hover::before { opacity: 1; }
+
+  .panel-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: var(--plasma);
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .panel-title::before {
+    content: '';
+    display: inline-block;
+    width: 6px; height: 6px;
+    background: var(--plasma);
+    box-shadow: 0 0 8px var(--plasma);
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* ═══ KPI METRICS ═══ */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    padding: 16px 32px;
+    background: rgba(0,3,15,0.6);
+    border-bottom: 1px solid rgba(0,245,255,0.08);
+  }
+
+  .kpi-card {
+    background: linear-gradient(135deg, rgba(0,15,40,0.8), rgba(0,8,25,0.9));
+    border: 1px solid rgba(0,245,255,0.15);
+    border-radius: 8px;
+    padding: 16px 18px;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+
+  .kpi-card:hover {
+    transform: translateY(-3px);
+    border-color: var(--plasma);
+    box-shadow: 0 8px 30px rgba(0,245,255,0.15);
+  }
+
+  .kpi-card .accent-line {
+    position: absolute;
+    left: 0; top: 0; bottom: 0; width: 3px;
+    border-radius: 3px 0 0 3px;
+  }
+
+  .kpi-card.c1 .accent-line { background: var(--critical); box-shadow: 0 0 10px var(--critical); }
+  .kpi-card.c2 .accent-line { background: var(--plasma); box-shadow: 0 0 10px var(--plasma); }
+  .kpi-card.c3 .accent-line { background: var(--volt); box-shadow: 0 0 10px var(--volt); }
+  .kpi-card.c4 .accent-line { background: var(--warn); box-shadow: 0 0 10px var(--warn); }
+  .kpi-card.c5 .accent-line { background: var(--storm); box-shadow: 0 0 10px var(--storm); }
+  .kpi-card.c6 .accent-line { background: var(--gold); box-shadow: 0 0 10px var(--gold); }
+
+  .kpi-icon { font-size: 1.4rem; margin-bottom: 6px; }
+  .kpi-val {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.8rem;
+    font-weight: 900;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .kpi-card.c1 .kpi-val { color: var(--critical); text-shadow: 0 0 15px var(--critical); }
+  .kpi-card.c2 .kpi-val { color: var(--plasma); text-shadow: 0 0 15px var(--plasma); }
+  .kpi-card.c3 .kpi-val { color: var(--volt); text-shadow: 0 0 15px var(--volt); }
+  .kpi-card.c4 .kpi-val { color: var(--warn); text-shadow: 0 0 15px var(--warn); }
+  .kpi-card.c5 .kpi-val { color: var(--storm); text-shadow: 0 0 15px var(--storm); }
+  .kpi-card.c6 .kpi-val { color: var(--gold); text-shadow: 0 0 15px var(--gold); }
+
+  .kpi-label { font-size: 0.62rem; color: var(--text-dim); letter-spacing: 1.5px; text-transform: uppercase; font-family: 'Share Tech Mono', monospace; }
+  .kpi-change { font-size: 0.65rem; margin-top: 4px; font-family: 'Share Tech Mono', monospace; }
+  .kpi-change.up { color: var(--critical); }
+  .kpi-change.down { color: var(--volt); }
+
+  /* ═══ CHART AREA ═══ */
+  .chart-center {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .chart-row {
+    display: grid;
+    gap: 16px;
+  }
+
+  .chart-row.cols-2 { grid-template-columns: 1fr 1fr; }
+  .chart-row.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+  .chart-row.cols-1-2 { grid-template-columns: 1fr 2fr; }
+  .chart-row.cols-2-1 { grid-template-columns: 2fr 1fr; }
+
+  .chart-wrap {
+    background: var(--bg-card);
+    border: 1px solid var(--border-glow);
+    border-radius: 8px;
+    padding: 16px;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s;
+  }
+
+  .chart-wrap:hover {
+    border-color: rgba(0,245,255,0.4);
+    box-shadow: 0 0 30px rgba(0,245,255,0.07);
+  }
+
+  .chart-wrap::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--storm), transparent);
+    opacity: 0.4;
+  }
+
+  .chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+  }
+
+  .chart-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.6rem;
+    font-weight: 700;
+    color: var(--plasma);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .chart-subtitle {
+    font-size: 0.58rem;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    margin-top: 2px;
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  .chart-badge {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.6rem;
+    padding: 3px 8px;
+    border-radius: 3px;
+    letter-spacing: 1px;
+  }
+
+  .badge-plasma { background: rgba(0,245,255,0.1); color: var(--plasma); border: 1px solid rgba(0,245,255,0.3); }
+  .badge-ember { background: rgba(255,69,0,0.1); color: var(--ember); border: 1px solid rgba(255,69,0,0.3); }
+  .badge-volt { background: rgba(170,255,0,0.1); color: var(--volt); border: 1px solid rgba(170,255,0,0.3); }
+
+  canvas { display: block; }
+
+  /* ═══ GRID MAP ═══ */
+  #grid-map-svg {
+    width: 100%;
+    height: 200px;
+    cursor: pointer;
+  }
+
+  /* ═══ SEVERITY BAR ═══ */
+  .sev-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .sev-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.62rem;
+    width: 70px;
+    color: var(--text-dim);
+    letter-spacing: 0.5px;
+  }
+
+  .sev-track {
+    flex: 1;
+    height: 6px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .sev-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 1s cubic-bezier(0.4,0,0.2,1);
+  }
+
+  .sev-count {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.65rem;
+    font-weight: 700;
+    width: 24px;
+    text-align: right;
+  }
+
+  /* ═══ OUTAGE LIST ═══ */
+  .outage-item {
+    padding: 8px 10px;
+    border-radius: 4px;
+    border: 1px solid rgba(0,245,255,0.08);
+    margin-bottom: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(0,10,30,0.5);
+  }
+
+  .outage-item:hover { border-color: var(--plasma); background: rgba(0,245,255,0.05); transform: translateX(3px); }
+
+  .outage-id {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.6rem;
+    color: var(--plasma);
+    letter-spacing: 1px;
+  }
+
+  .outage-region {
+    font-size: 0.65rem;
+    color: var(--text-bright);
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  .outage-badge {
+    font-size: 0.55rem;
+    padding: 2px 6px;
+    border-radius: 2px;
+    font-family: 'Share Tech Mono', monospace;
+    letter-spacing: 1px;
+  }
+
+  .ob-critical { background: rgba(255,26,26,0.2); color: var(--critical); border: 1px solid rgba(255,26,26,0.4); }
+  .ob-major { background: rgba(255,136,0,0.2); color: var(--warn); border: 1px solid rgba(255,136,0,0.4); }
+  .ob-moderate { background: rgba(0,245,255,0.1); color: var(--plasma); border: 1px solid rgba(0,245,255,0.3); }
+  .ob-minor { background: rgba(170,255,0,0.1); color: var(--volt); border: 1px solid rgba(170,255,0,0.3); }
+
+  /* ═══ GAUGE ═══ */
+  .gauge-wrap { display: flex; flex-direction: column; align-items: center; }
+  .gauge-canvas { width: 120px !important; height: 70px !important; }
+
+  /* ═══ DATA TABLE ═══ */
+  .data-table-wrap { overflow-x: auto; max-height: 280px; overflow-y: auto; }
+  .data-table-wrap::-webkit-scrollbar { width:5px; height:5px; }
+  .data-table-wrap::-webkit-scrollbar-track { background: rgba(0,245,255,0.02); }
+  .data-table-wrap::-webkit-scrollbar-thumb { background: rgba(0,245,255,0.2); border-radius: 3px; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.62rem;
+  }
+
+  th {
+    background: rgba(0,245,255,0.08);
+    color: var(--plasma);
+    padding: 6px 10px;
+    text-align: left;
+    letter-spacing: 1.5px;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.55rem;
+    position: sticky;
+    top: 0;
+    border-bottom: 1px solid rgba(0,245,255,0.2);
+  }
+
+  td {
+    padding: 5px 10px;
+    color: var(--text-bright);
+    border-bottom: 1px solid rgba(0,245,255,0.04);
+  }
+
+  tr:hover td { background: rgba(0,245,255,0.04); }
+
+  /* ═══ PROGRESS ARCS ═══ */
+  .arc-wrap {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding: 10px 0;
+  }
+
+  .arc-item { text-align: center; }
+  .arc-svg { width: 80px; height: 80px; }
+  .arc-val { font-family: 'Orbitron', sans-serif; font-size: 0.9rem; font-weight: 700; fill: var(--plasma); }
+  .arc-lbl { font-size: 0.55rem; color: var(--text-dim); font-family: 'Share Tech Mono', monospace; letter-spacing: 1px; margin-top: 4px; }
+
+  /* ═══ TOOLTIP ═══ */
+  .tooltip-box {
+    position: fixed;
+    background: rgba(0,8,25,0.95);
+    border: 1px solid var(--plasma);
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--text-bright);
+    pointer-events: none;
+    z-index: 9999;
+    display: none;
+    box-shadow: 0 0 20px rgba(0,245,255,0.2);
+    max-width: 220px;
+  }
+
+  .tooltip-title { color: var(--plasma); font-family: 'Orbitron', sans-serif; font-size: 0.6rem; letter-spacing: 2px; margin-bottom: 6px; }
+  .tooltip-row { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 2px; }
+  .tooltip-key { color: var(--text-dim); }
+  .tooltip-val { color: var(--volt); font-weight: 700; }
+
+  /* ═══ SCROLLBAR ═══ */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: rgba(0,0,0,0.3); }
+  ::-webkit-scrollbar-thumb { background: rgba(0,245,255,0.2); border-radius: 3px; }
+
+  /* ═══ PULSE RING ═══ */
+  @keyframes pulse-ring {
+    0% { transform: scale(0.9); opacity: 1; }
+    100% { transform: scale(1.4); opacity: 0; }
+  }
+
+  /* ═══ FOOTER ═══ */
+  .footer {
+    background: rgba(0,3,12,0.95);
+    border-top: 1px solid rgba(0,245,255,0.1);
+    padding: 12px 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+  }
+
+  /* ═══ TAB PAGES ═══ */
+  .tab-page { display: none; }
+  .tab-page.active { display: block; }
+
+  /* ═══ SCAN LINE OVERLAY ═══ */
+  .scanlines {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.04) 2px, rgba(0,0,0,0.04) 4px);
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  /* ═══ CORNER DECORATIONS ═══ */
+  .corner-deco {
+    position: absolute;
+    width: 14px; height: 14px;
+  }
+
+  .corner-deco.tl { top: 0; left: 0; border-top: 2px solid var(--plasma); border-left: 2px solid var(--plasma); }
+  .corner-deco.tr { top: 0; right: 0; border-top: 2px solid var(--plasma); border-right: 2px solid var(--plasma); }
+  .corner-deco.bl { bottom: 0; left: 0; border-bottom: 2px solid var(--plasma); border-left: 2px solid var(--plasma); }
+  .corner-deco.br { bottom: 0; right: 0; border-bottom: 2px solid var(--plasma); border-right: 2px solid var(--plasma); }
+
+  .notification-flash {
+    position: fixed;
+    top: 80px; right: 20px;
+    background: rgba(255,69,0,0.15);
+    border: 1px solid var(--ember);
+    border-radius: 6px;
+    padding: 12px 18px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--ember);
+    z-index: 1000;
+    transform: translateX(120%);
+    transition: transform 0.4s cubic-bezier(0.4,0,0.2,1);
+    max-width: 260px;
+  }
+
+  .notification-flash.show { transform: translateX(0); }
+  .notification-flash strong { color: var(--critical); display: block; margin-bottom: 3px; }
+
+  .cascade-indicator {
+    display: inline-block;
+    width: 8px; height: 8px;
+    background: var(--critical);
+    border-radius: 50%;
+    margin-left: 4px;
+    animation: blink 0.8s ease-in-out infinite;
+    vertical-align: middle;
+  }
+
+  .no-cascade {
+    display: inline-block;
+    width: 8px; height: 8px;
+    background: var(--volt);
+    border-radius: 50%;
+    margin-left: 4px;
+    vertical-align: middle;
+  }
+
+  .voltage-bar-wrap { margin: 6px 0; }
+  .voltage-label { font-family: 'Share Tech Mono', monospace; font-size: 0.6rem; color: var(--text-dim); display: flex; justify-content: space-between; margin-bottom: 2px; }
+  .voltage-track { height: 4px; background: rgba(255,255,255,0.05); border-radius: 2px; overflow: hidden; }
+  .voltage-fill { height: 100%; border-radius: 2px; transition: width 1s; }
+
+  @keyframes flow-anim {
+    0% { stroke-dashoffset: 100; }
+    100% { stroke-dashoffset: 0; }
+  }
+
+  .flow-line { animation: flow-anim 3s linear infinite; }
+</style>
+</head>
+<body>
+
+<!-- Animated background canvas -->
+<canvas id="bg-canvas"></canvas>
+<div class="scanlines"></div>
+<div class="tooltip-box" id="tooltip"></div>
+<div class="notification-flash" id="notif"></div>
+
+<div class="content-wrap">
+
+<!-- ═══════ HEADER ═══════ -->
+<header class="header">
+  <div class="header-brand">
+    <div class="logo-icon">⚡</div>
+    <div class="brand-text">
+      <h1>BLACKOUT CHAIN ANALYTICS</h1>
+      <p>PRAVEEN KANTH .N &nbsp;|&nbsp; 23MIC0078 &nbsp;|&nbsp; REAL-TIME POWER OUTAGE PROPAGATION — SMART GRID NETWORK</p>
+    </div>
+  </div>
+  <div class="header-stats">
+    <div class="hstat">
+      <div class="hstat-val red" id="hstat-critical">12</div>
+      <div class="hstat-label">Critical</div>
+    </div>
+    <div class="hstat">
+      <div class="hstat-val orange" id="hstat-cascades">35</div>
+      <div class="hstat-label">Cascades</div>
+    </div>
+    <div class="hstat">
+      <div class="hstat-val" id="hstat-customers">729K</div>
+      <div class="hstat-label">Affected</div>
+    </div>
+    <div class="hstat">
+      <div class="hstat-val green" id="hstat-restored">92%</div>
+      <div class="hstat-label">Restored</div>
+    </div>
+    <div class="sep"></div>
+    <div class="live-badge"><div class="live-dot"></div>LIVE</div>
+    <div class="header-time" id="header-clock">00:00:00</div>
+  </div>
+</header>
+
+<!-- ═══════ CONTROLS ═══════ -->
+<div class="controls-bar">
+  <div class="ctrl-group">
+    <span class="ctrl-label">REGION</span>
+    <select id="filter-region" onchange="applyFilters()">
+      <option value="all">ALL REGIONS</option>
+      <option value="North">NORTH</option>
+      <option value="South">SOUTH</option>
+      <option value="East">EAST</option>
+      <option value="West">WEST</option>
+      <option value="Central">CENTRAL</option>
+    </select>
+  </div>
+  <div class="ctrl-group">
+    <span class="ctrl-label">SEVERITY</span>
+    <select id="filter-severity" onchange="applyFilters()">
+      <option value="all">ALL SEVERITY</option>
+      <option value="Critical">CRITICAL</option>
+      <option value="Major">MAJOR</option>
+      <option value="Moderate">MODERATE</option>
+      <option value="Minor">MINOR</option>
+    </select>
+  </div>
+  <div class="ctrl-group">
+    <span class="ctrl-label">CAUSE</span>
+    <select id="filter-cause" onchange="applyFilters()">
+      <option value="all">ALL CAUSES</option>
+      <option value="Storm">STORM</option>
+      <option value="Equipment Failure">EQUIPMENT FAILURE</option>
+      <option value="Overload">OVERLOAD</option>
+      <option value="Cyber Attack">CYBER ATTACK</option>
+      <option value="Lightning">LIGHTNING</option>
+      <option value="Tree Contact">TREE CONTACT</option>
+    </select>
+  </div>
+  <div class="ctrl-group">
+    <span class="ctrl-label">MONTH</span>
+    <select id="filter-month" onchange="applyFilters()">
+      <option value="all">ALL MONTHS</option>
+      <option value="1">JANUARY</option>
+      <option value="2">FEBRUARY</option>
+      <option value="3">MARCH</option>
+      <option value="4">APRIL</option>
+      <option value="5">MAY</option>
+      <option value="6">JUNE</option>
+    </select>
+  </div>
+  <div class="sep"></div>
+  <button class="tab-btn active" onclick="showTab('overview',this)">⬡ OVERVIEW</button>
+  <button class="tab-btn" onclick="showTab('propagation',this)">⟁ PROPAGATION</button>
+  <button class="tab-btn" onclick="showTab('analysis',this)">◈ ANALYSIS</button>
+  <button class="tab-btn" onclick="showTab('dataset',this)">⊞ DATASET</button>
+  <div class="sep"></div>
+  <button class="tab-btn" onclick="toggleSimulation()" id="sim-btn">▶ SIMULATE</button>
+  <button class="tab-btn" onclick="exportData()">⬇ EXPORT</button>
+</div>
+
+<!-- ═══════ ALERT TICKER ═══════ -->
+<div class="alert-ticker">
+  <span class="ticker-inner" id="ticker-text">
+    ⚠ CRITICAL: Zone-A — SUB-N01 cascading failure detected at 02:14 — 12,500 customers affected &nbsp;&nbsp;▶&nbsp;&nbsp;
+    ⚠ ALERT: West region Storm event — 67,000 customers offline — Duration: 540 min &nbsp;&nbsp;▶&nbsp;&nbsp;
+    ⚠ WARNING: Cyber Attack on Central SUB-C02 — Grid frequency: 47.9 Hz — BELOW THRESHOLD &nbsp;&nbsp;▶&nbsp;&nbsp;
+    ⚠ MONITORING: East Zone — 3 consecutive outages detected — Potential relay failure &nbsp;&nbsp;▶&nbsp;&nbsp;
+    ✔ RESTORED: SUB-S01 South Zone — 22,000 customers reconnected — Response time: 14 min &nbsp;&nbsp;▶&nbsp;&nbsp;
+    ⚡ FREQUENCY DROP: Zone-D — 47.2 Hz detected — Emergency load shedding initiated &nbsp;&nbsp;▶&nbsp;&nbsp;
+    ⚠ MAINTENANCE OVERDUE: SUB-W03 — Last maintenance: 200 days ago — Inspection required
+  </span>
+</div>
+
+<!-- ═══════ KPI CARDS ═══════ -->
+<div class="kpi-grid" id="kpi-area">
+  <div class="kpi-card c1" onclick="filterBySeverity('Critical')">
+    <div class="corner-deco tl"></div><div class="corner-deco br"></div>
+    <div class="accent-line"></div>
+    <div class="kpi-icon">💥</div>
+    <div class="kpi-val" id="kpi-total">60</div>
+    <div class="kpi-label">TOTAL OUTAGE EVENTS</div>
+    <div class="kpi-change up">↑ Jan–Jun 2024</div>
+  </div>
+  <div class="kpi-card c2" onclick="filterBySeverity('all')">
+    <div class="corner-deco tl"></div><div class="corner-deco br"></div>
+    <div class="accent-line"></div>
+    <div class="kpi-icon">👥</div>
+    <div class="kpi-val" id="kpi-affected">729K</div>
+    <div class="kpi-label">CUSTOMERS AFFECTED</div>
+    <div class="kpi-change up">↑ Across 5 Regions</div>
+  </div>
+  <div class="kpi-card c3" onclick="filterBySeverity('Minor')">
+    <div class="corner-deco tl"></div><div class="corner-deco br"></div>
+    <div class="accent-line"></div>
+    <div class="kpi-icon">⏱</div>
+    <div class="kpi-val" id="kpi-avgdur">228</div>
+    <div class="kpi-label">AVG DURATION (MIN)</div>
+    <div class="kpi-change up">↑ 18% vs Target</div>
+  </div>
+  <div class="kpi-card c4" onclick="filterBySeverity('Critical')">
+    <div class="corner-deco tl"></div><div class="corner-deco br"></div>
+    <div class="accent-line"></div>
+    <div class="kpi-icon">⚡</div>
+    <div class="kpi-val" id="kpi-cascade">35</div>
+    <div class="kpi-label">CASCADE EVENTS</div>
+    <div class="kpi-change up">58.3% of total</div>
+  </div>
+</div>
+
+<!-- ═══════ MAIN CONTENT ═══════ -->
+
+<!-- TAB: OVERVIEW -->
+<div class="tab-page active" id="tab-overview">
+<div class="main-grid">
+
+  <!-- LEFT SIDEBAR -->
+  <div class="sidebar">
+
+    <div class="panel">
+      <div class="panel-title">SEVERITY DISTRIBUTION</div>
+      <div id="sev-bars"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">ACTIVE EVENTS</div>
+      <div id="outage-list"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">GRID FREQUENCY</div>
+      <canvas id="mini-freq" height="70"></canvas>
+      <div style="display:flex;justify-content:space-between;margin-top:6px;">
+        <span style="font-family:'Share Tech Mono',monospace;font-size:0.6rem;color:var(--text-dim)">MIN: 47.2 Hz</span>
+        <span style="font-family:'Share Tech Mono',monospace;font-size:0.6rem;color:var(--volt)">NOM: 50.0 Hz</span>
+        <span style="font-family:'Share Tech Mono',monospace;font-size:0.6rem;color:var(--text-dim)">MAX: 49.8 Hz</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- CENTER -->
+  <div class="chart-center">
+
+    <!-- Row 1: Timeseries + Cause pie -->
+    <div class="chart-row cols-2-1">
+      <div class="chart-wrap">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">OUTAGE EVENTS TIMELINE — JAN TO JUN 2024</div>
+            <div class="chart-subtitle">Customer Impact · Duration · Cascade Propagation</div>
+          </div>
+          <span class="chart-badge badge-plasma">TIME SERIES</span>
+        </div>
+        <canvas id="timeline-chart" height="130"></canvas>
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">OUTAGE CAUSE BREAKDOWN</div>
+            <div class="chart-subtitle">Root Cause Analysis</div>
+          </div>
+          <span class="chart-badge badge-ember">DONUT</span>
+        </div>
+        <canvas id="cause-chart" height="130"></canvas>
+      </div>
+    </div>
+
+    <!-- Row 2: Region bar + Severity radar -->
+    <div class="chart-row cols-2">
+      <div class="chart-wrap">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">REGION-WISE CUSTOMER IMPACT</div>
+            <div class="chart-subtitle">Total Affected Customers per Region</div>
+          </div>
+          <span class="chart-badge badge-volt">BAR CHART</span>
+        </div>
+        <canvas id="region-bar" height="130"></canvas>
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">MULTI-VARIABLE IMPACT RADAR</div>
+            <div class="chart-subtitle">Normalized per Region</div>
+          </div>
+          <span class="chart-badge badge-plasma">RADAR</span>
+        </div>
+        <canvas id="radar-chart" height="130"></canvas>
+      </div>
+    </div>
+
+    <!-- Row 3: Duration box + Cascade scatter -->
+    <div class="chart-row cols-2">
+      <div class="chart-wrap">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">OUTAGE DURATION vs CUSTOMERS</div>
+            <div class="chart-subtitle">Bubble = Cascade Risk</div>
+          </div>
+          <span class="chart-badge badge-ember">BUBBLE</span>
+        </div>
+        <canvas id="bubble-chart" height="130"></canvas>
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">MONTHLY TREND — OUTAGES & SEVERITY</div>
+            <div class="chart-subtitle">Stacked by Severity Level</div>
+          </div>
+          <span class="chart-badge badge-volt">STACKED</span>
+        </div>
+        <canvas id="stacked-bar" height="130"></canvas>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- RIGHT SIDEBAR -->
+  <div class="sidebar sidebar-right">
+
+    <div class="panel">
+      <div class="panel-title">GRID ZONE HEALTH</div>
+      <div class="arc-wrap" id="zone-arcs"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">VOLTAGE STABILITY</div>
+      <div id="voltage-bars"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">OPERATOR RESPONSE</div>
+      <canvas id="response-chart" height="110"></canvas>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">CAUSE vs DURATION</div>
+      <canvas id="cause-dur" height="110"></canvas>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<!-- TAB: PROPAGATION -->
+<div class="tab-page" id="tab-propagation">
+<div style="padding:20px;">
+  <div class="chart-row cols-2" style="margin-bottom:16px;">
+    <div class="chart-wrap">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">CASCADE PROPAGATION MAP — SMART GRID TOPOLOGY</div>
+          <div class="chart-subtitle">Click nodes to inspect · Red = Active Failure · Yellow = At-Risk</div>
+        </div>
+        <span class="chart-badge badge-ember">NETWORK</span>
+      </div>
+      <svg id="grid-map-svg" viewBox="0 0 700 280"></svg>
+    </div>
+    <div class="chart-wrap">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">OUTAGE PROPAGATION HEATMAP</div>
+          <div class="chart-subtitle">Hour × Region Density Matrix</div>
+        </div>
+        <span class="chart-badge badge-plasma">HEATMAP</span>
+      </div>
+      <canvas id="heatmap-chart" height="240"></canvas>
+    </div>
+  </div>
+  <div class="chart-row cols-3">
+    <div class="chart-wrap">
+      <div class="chart-header">
+        <div><div class="chart-title">CASCADE vs NON-CASCADE</div><div class="chart-subtitle">Outage type ratio per month</div></div>
+        <span class="chart-badge badge-volt">POLAR</span>
+      </div>
+      <canvas id="polar-chart" height="200"></canvas>
+    </div>
+    <div class="chart-wrap">
+      <div class="chart-header">
+        <div><div class="chart-title">VOLTAGE DROP DISTRIBUTION</div><div class="chart-subtitle">Per-event voltage stability index</div></div>
+        <span class="chart-badge badge-ember">SCATTER</span>
+      </div>
+      <canvas id="scatter-volt" height="200"></canvas>
+    </div>
+    <div class="chart-wrap">
+      <div class="chart-header">
+        <div><div class="chart-title">EQUIPMENT AGE vs FAILURE</div><div class="chart-subtitle">Correlation analysis</div></div>
+        <span class="chart-badge badge-plasma">LINE</span>
+      </div>
+      <canvas id="age-line" height="200"></canvas>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- TAB: ANALYSIS -->
+<div class="tab-page" id="tab-analysis">
+<div style="padding:20px;">
+  <div class="chart-row cols-2" style="margin-bottom:16px;">
+    <div class="chart-wrap">
+      <div class="chart-header">
+        <div><div class="chart-title">TEMPERATURE vs OUTAGE DURATION</div><div class="chart-subtitle">Environmental correlation scatter</div></div>
+        <span class="chart-badge badge-volt">SCATTER</span>
+      </div>
+      <canvas id="temp-scatter" height="220"></canvas>
+    </div>
+    <div class="chart-wrap">
+      <div class="chart-header">
+        <div><div class="chart-title">WIND SPEED vs AFFECTED CUSTOMERS</div><div class="chart-subtitle">Storm intensity correlation</div></div>
+        <span class="chart-badge badge-plasma">SCATTER</span>
+      </div>
+      <canvas id="wind-scatter" height="220"></canvas>
+    </div>
+  </div>
+  <div class="chart-row cols-3">
+    <div class="chart-wrap">
+      <div class="chart-header">
+        <div><div class="chart-title">MAINTENANCE GAP ANALYSIS</div><div class="chart-subtitle">Days since last maintenance</div></div>
+        <span class="chart-badge badge-ember">BAR</span>
+      </div>
+      <canvas id="maint-bar" height="180"></canvas>
+    </div>
+    <div class="chart-wrap">
+      <div class="chart-header">
+        <div><div class="chart-title">SUBSTATION RISK MATRIX</div><div class="chart-subtitle">Frequency vs Severity Score</div></div>
+        <span class="chart-badge badge-volt">BUBBLE</span>
+      </div>
+      <canvas id="risk-bubble" height="180"></canvas>
+    </div>
+    <div class="chart-wrap">
+      <div class="chart-header">
+        <div><div class="chart-title">RESPONSE TIME EFFICIENCY</div><div class="chart-subtitle">Operator response by cause</div></div>
+        <span class="chart-badge badge-plasma">DOUGHNUT</span>
+      </div>
+      <canvas id="resp-pie" height="180"></canvas>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- TAB: DATASET -->
+<div class="tab-page" id="tab-dataset">
+<div style="padding:20px;">
+  <div class="chart-wrap" style="margin-bottom:16px;">
+    <div class="chart-header">
+      <div>
+        <div class="chart-title">RAW DATASET — SMART GRID OUTAGE RECORDS (60 EVENTS · JAN–JUN 2024)</div>
+        <div class="chart-subtitle">Cleaned · Typed · Validated — All 60 outage events with 20 features</div>
+      </div>
+      <span class="chart-badge badge-plasma" id="rec-count">60 RECORDS</span>
+    </div>
+    <div class="data-table-wrap">
+      <table id="data-table">
+        <thead>
+          <tr>
+            <th>EVENT ID</th><th>DATE</th><th>REGION</th><th>SUBSTATION</th>
+            <th>CAUSE</th><th>CUSTOMERS</th><th>DURATION</th><th>VOLTAGE</th>
+            <th>FREQ(Hz)</th><th>LOAD(MW)</th><th>TEMP(°C)</th>
+            <th>WIND</th><th>CASCADE</th><th>SEVERITY</th><th>ZONE</th>
+          </tr>
+        </thead>
+        <tbody id="table-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="chart-row cols-3">
+    <div class="chart-wrap">
+      <div class="chart-title" style="margin-bottom:10px;">DATA QUALITY REPORT</div>
+      <div id="dq-report" style="font-family:'Share Tech Mono',monospace;font-size:0.65rem;color:var(--text-bright);line-height:1.8;"></div>
+    </div>
+    <div class="chart-wrap">
+      <div class="chart-title" style="margin-bottom:10px;">FEATURE STATISTICS</div>
+      <div id="feat-stats" style="font-family:'Share Tech Mono',monospace;font-size:0.62rem;line-height:1.9;"></div>
+    </div>
+    <div class="chart-wrap">
+      <div class="chart-title" style="margin-bottom:10px;">DATA TYPE SCHEMA</div>
+      <div id="dtype-schema" style="font-family:'Share Tech Mono',monospace;font-size:0.62rem;line-height:1.9;"></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <span>⚡ BLACKOUT CHAIN DASHBOARD · PRAVEEN KANTH .N · 23MIC0078 · ADVANCED DATA VISUALIZATION TECHNIQUES</span>
+  <span>DATASET: SMART GRID POWER OUTAGE RECORDS 2024 · 60 EVENTS · 20 FEATURES · JAN–JUN</span>
+  <span id="footer-time">LAST UPDATE: --:--:--</span>
+</footer>
+
+</div><!-- end content-wrap -->
+
+<script>
+// ═══════════════════════════════════════════
+// RAW DATASET
+// ═══════════════════════════════════════════
+const RAW = [
+ {id:"E001",ts:"2024-01-05",region:"North",sub:"SUB-N01",cause:"Equipment Failure",customers:12500,duration:145,voltage:0.78,freq:49.2,load:320,temp:8.2,wind:15,precip:0,cascaded:1,severity:"Critical",zone:"Zone-A",response:12,age:18,maint:45},
+ {id:"E002",ts:"2024-01-07",region:"South",sub:"SUB-S03",cause:"Storm",customers:45000,duration:320,voltage:0.52,freq:48.5,load:890,temp:22.1,wind:85,precip:42,cascaded:1,severity:"Major",zone:"Zone-C",response:8,age:12,maint:120},
+ {id:"E003",ts:"2024-01-10",region:"East",sub:"SUB-E02",cause:"Overload",customers:8200,duration:65,voltage:0.85,freq:49.7,load:450,temp:28.5,wind:8,precip:0,cascaded:0,severity:"Moderate",zone:"Zone-B",response:18,age:7,maint:30},
+ {id:"E004",ts:"2024-01-12",region:"West",sub:"SUB-W01",cause:"Equipment Failure",customers:31000,duration:210,voltage:0.61,freq:48.8,load:620,temp:5.1,wind:22,precip:5,cascaded:1,severity:"Critical",zone:"Zone-D",response:10,age:25,maint:90},
+ {id:"E005",ts:"2024-01-15",region:"Central",sub:"SUB-C02",cause:"Cyber Attack",customers:18000,duration:480,voltage:0.42,freq:47.9,load:750,temp:18.3,wind:12,precip:0,cascaded:1,severity:"Critical",zone:"Zone-A",response:5,age:10,maint:60},
+ {id:"E006",ts:"2024-01-18",region:"North",sub:"SUB-N02",cause:"Tree Contact",customers:5500,duration:90,voltage:0.88,freq:49.5,load:280,temp:12.7,wind:35,precip:18,cascaded:0,severity:"Minor",zone:"Zone-B",response:20,age:15,maint:25},
+ {id:"E007",ts:"2024-01-20",region:"South",sub:"SUB-S01",cause:"Lightning",customers:22000,duration:155,voltage:0.71,freq:49.1,load:580,temp:25.4,wind:45,precip:72,cascaded:0,severity:"Major",zone:"Zone-C",response:14,age:9,maint:80},
+ {id:"E008",ts:"2024-01-23",region:"East",sub:"SUB-E03",cause:"Equipment Failure",customers:9800,duration:175,voltage:0.76,freq:49.0,load:390,temp:19.8,wind:18,precip:0,cascaded:1,severity:"Moderate",zone:"Zone-D",response:16,age:20,maint:50},
+ {id:"E009",ts:"2024-01-25",region:"West",sub:"SUB-W03",cause:"Storm",customers:67000,duration:540,voltage:0.38,freq:47.2,load:1100,temp:3.8,wind:95,precip:88,cascaded:1,severity:"Critical",zone:"Zone-A",response:6,age:14,maint:200},
+ {id:"E010",ts:"2024-01-28",region:"Central",sub:"SUB-C01",cause:"Overload",customers:14200,duration:85,voltage:0.82,freq:49.4,load:520,temp:30.2,wind:10,precip:0,cascaded:0,severity:"Moderate",zone:"Zone-B",response:22,age:6,maint:15},
+ {id:"E011",ts:"2024-02-02",region:"North",sub:"SUB-N03",cause:"Equipment Failure",customers:19500,duration:230,voltage:0.65,freq:48.7,load:440,temp:6.5,wind:20,precip:0,cascaded:1,severity:"Major",zone:"Zone-C",response:11,age:22,maint:70},
+ {id:"E012",ts:"2024-02-05",region:"South",sub:"SUB-S02",cause:"Storm",customers:38000,duration:290,voltage:0.55,freq:48.4,load:820,temp:20.8,wind:78,precip:55,cascaded:1,severity:"Major",zone:"Zone-D",response:9,age:11,maint:140},
+ {id:"E013",ts:"2024-02-08",region:"East",sub:"SUB-E01",cause:"Tree Contact",customers:6800,duration:70,voltage:0.87,freq:49.6,load:310,temp:15.2,wind:40,precip:22,cascaded:0,severity:"Minor",zone:"Zone-A",response:19,age:8,maint:20},
+ {id:"E014",ts:"2024-02-11",region:"West",sub:"SUB-W02",cause:"Overload",customers:25000,duration:160,voltage:0.73,freq:48.9,load:680,temp:8.9,wind:15,precip:0,cascaded:0,severity:"Major",zone:"Zone-B",response:15,age:16,maint:55},
+ {id:"E015",ts:"2024-02-14",region:"Central",sub:"SUB-C03",cause:"Lightning",customers:11200,duration:120,voltage:0.80,freq:49.3,load:370,temp:22.6,wind:55,precip:60,cascaded:0,severity:"Moderate",zone:"Zone-C",response:17,age:12,maint:35},
+ {id:"E016",ts:"2024-02-17",region:"North",sub:"SUB-N01",cause:"Cyber Attack",customers:28000,duration:380,voltage:0.48,freq:48.1,load:590,temp:10.3,wind:18,precip:0,cascaded:1,severity:"Critical",zone:"Zone-D",response:7,age:18,maint:65},
+ {id:"E017",ts:"2024-02-20",region:"South",sub:"SUB-S03",cause:"Equipment Failure",customers:15600,duration:195,voltage:0.69,freq:48.8,load:460,temp:24.7,wind:12,precip:0,cascaded:1,severity:"Moderate",zone:"Zone-A",response:13,age:19,maint:75},
+ {id:"E018",ts:"2024-02-23",region:"East",sub:"SUB-E02",cause:"Storm",customers:52000,duration:420,voltage:0.45,freq:47.8,load:950,temp:4.2,wind:88,precip:78,cascaded:1,severity:"Critical",zone:"Zone-B",response:8,age:13,maint:180},
+ {id:"E019",ts:"2024-02-26",region:"West",sub:"SUB-W01",cause:"Overload",customers:7900,duration:55,voltage:0.91,freq:49.8,load:340,temp:18.1,wind:8,precip:0,cascaded:0,severity:"Minor",zone:"Zone-C",response:25,age:5,maint:10},
+ {id:"E020",ts:"2024-02-29",region:"Central",sub:"SUB-C02",cause:"Equipment Failure",customers:21000,duration:265,voltage:0.62,freq:48.6,load:510,temp:12.4,wind:25,precip:0,cascaded:1,severity:"Major",zone:"Zone-D",response:12,age:23,maint:85},
+ {id:"E021",ts:"2024-03-04",region:"North",sub:"SUB-N02",cause:"Storm",customers:41000,duration:350,voltage:0.50,freq:48.2,load:780,temp:2.8,wind:92,precip:95,cascaded:1,severity:"Critical",zone:"Zone-A",response:7,age:10,maint:220},
+ {id:"E022",ts:"2024-03-07",region:"South",sub:"SUB-S01",cause:"Tree Contact",customers:8400,duration:80,voltage:0.86,freq:49.5,load:350,temp:26.3,wind:42,precip:28,cascaded:0,severity:"Minor",zone:"Zone-B",response:21,age:9,maint:22},
+ {id:"E023",ts:"2024-03-10",region:"East",sub:"SUB-E03",cause:"Lightning",customers:17800,duration:140,voltage:0.74,freq:49.0,load:480,temp:19.5,wind:50,precip:68,cascaded:0,severity:"Moderate",zone:"Zone-C",response:16,age:14,maint:40},
+ {id:"E024",ts:"2024-03-13",region:"West",sub:"SUB-W03",cause:"Equipment Failure",customers:33000,duration:280,voltage:0.58,freq:48.5,load:700,temp:7.6,wind:20,precip:0,cascaded:1,severity:"Major",zone:"Zone-D",response:10,age:21,maint:95},
+ {id:"E025",ts:"2024-03-16",region:"Central",sub:"SUB-C01",cause:"Overload",customers:10500,duration:95,voltage:0.83,freq:49.4,load:400,temp:21.8,wind:10,precip:0,cascaded:0,severity:"Moderate",zone:"Zone-A",response:20,age:7,maint:18},
+ {id:"E026",ts:"2024-03-19",region:"North",sub:"SUB-N03",cause:"Cyber Attack",customers:24000,duration:520,voltage:0.40,freq:47.5,load:630,temp:14.9,wind:15,precip:0,cascaded:1,severity:"Critical",zone:"Zone-B",response:6,age:17,maint:100},
+ {id:"E027",ts:"2024-03-22",region:"South",sub:"SUB-S02",cause:"Storm",customers:58000,duration:460,voltage:0.43,freq:47.6,load:1020,temp:18.2,wind:102,precip:85,cascaded:1,severity:"Critical",zone:"Zone-C",response:7,age:12,maint:190},
+ {id:"E028",ts:"2024-03-25",region:"East",sub:"SUB-E01",cause:"Equipment Failure",customers:12800,duration:185,voltage:0.70,freq:48.9,load:420,temp:10.4,wind:18,precip:0,cascaded:1,severity:"Moderate",zone:"Zone-D",response:14,age:20,maint:60},
+ {id:"E029",ts:"2024-03-28",region:"West",sub:"SUB-W02",cause:"Tree Contact",customers:6200,duration:65,voltage:0.89,freq:49.6,load:290,temp:22.7,wind:38,precip:15,cascaded:0,severity:"Minor",zone:"Zone-A",response:22,age:8,maint:18},
+ {id:"E030",ts:"2024-03-31",region:"Central",sub:"SUB-C03",cause:"Lightning",customers:20000,duration:170,voltage:0.72,freq:49.0,load:550,temp:15.8,wind:60,precip:75,cascaded:0,severity:"Major",zone:"Zone-B",response:15,age:13,maint:48},
+ {id:"E031",ts:"2024-04-03",region:"North",sub:"SUB-N01",cause:"Storm",customers:47000,duration:395,voltage:0.47,freq:47.7,load:850,temp:8.5,wind:98,precip:90,cascaded:1,severity:"Critical",zone:"Zone-C",response:8,age:15,maint:210},
+ {id:"E032",ts:"2024-04-06",region:"South",sub:"SUB-S03",cause:"Equipment Failure",customers:16800,duration:220,voltage:0.66,freq:48.7,load:480,temp:25.6,wind:12,precip:0,cascaded:1,severity:"Major",zone:"Zone-D",response:12,age:22,maint:78},
+ {id:"E033",ts:"2024-04-09",region:"East",sub:"SUB-E02",cause:"Overload",customers:9200,duration:75,voltage:0.85,freq:49.5,load:360,temp:28.9,wind:8,precip:0,cascaded:0,severity:"Minor",zone:"Zone-A",response:23,age:6,maint:12},
+ {id:"E034",ts:"2024-04-12",region:"West",sub:"SUB-W01",cause:"Cyber Attack",customers:35000,duration:440,voltage:0.44,freq:47.8,load:740,temp:12.1,wind:20,precip:0,cascaded:1,severity:"Critical",zone:"Zone-B",response:6,age:18,maint:88},
+ {id:"E035",ts:"2024-04-15",region:"Central",sub:"SUB-C02",cause:"Storm",customers:29000,duration:300,voltage:0.56,freq:48.4,load:660,temp:20.4,wind:80,precip:65,cascaded:1,severity:"Major",zone:"Zone-C",response:9,age:11,maint:155},
+ {id:"E036",ts:"2024-04-18",region:"North",sub:"SUB-N02",cause:"Equipment Failure",customers:14000,duration:160,voltage:0.75,freq:49.0,load:410,temp:16.7,wind:15,precip:0,cascaded:0,severity:"Moderate",zone:"Zone-D",response:15,age:19,maint:52},
+ {id:"E037",ts:"2024-04-21",region:"South",sub:"SUB-S01",cause:"Tree Contact",customers:7600,duration:85,voltage:0.87,freq:49.5,load:320,temp:24.1,wind:45,precip:20,cascaded:0,severity:"Minor",zone:"Zone-A",response:20,age:10,maint:24},
+ {id:"E038",ts:"2024-04-24",region:"East",sub:"SUB-E03",cause:"Lightning",customers:18500,duration:145,voltage:0.73,freq:49.0,load:490,temp:19.8,wind:55,precip:70,cascaded:0,severity:"Moderate",zone:"Zone-B",response:16,age:14,maint:42},
+ {id:"E039",ts:"2024-04-27",region:"West",sub:"SUB-W03",cause:"Equipment Failure",customers:26000,duration:240,voltage:0.63,freq:48.6,load:580,temp:12.5,wind:18,precip:0,cascaded:1,severity:"Major",zone:"Zone-C",response:11,age:24,maint:82},
+ {id:"E040",ts:"2024-04-30",region:"Central",sub:"SUB-C01",cause:"Overload",customers:11800,duration:100,voltage:0.82,freq:49.3,load:430,temp:26.2,wind:10,precip:0,cascaded:0,severity:"Moderate",zone:"Zone-D",response:21,age:7,maint:20},
+ {id:"E041",ts:"2024-05-03",region:"North",sub:"SUB-N03",cause:"Storm",customers:55000,duration:480,voltage:0.41,freq:47.4,load:920,temp:10.8,wind:105,precip:98,cascaded:1,severity:"Critical",zone:"Zone-A",response:7,age:13,maint:230},
+ {id:"E042",ts:"2024-05-06",region:"South",sub:"SUB-S02",cause:"Equipment Failure",customers:20500,duration:255,voltage:0.61,freq:48.6,load:530,temp:22.9,wind:14,precip:0,cascaded:1,severity:"Major",zone:"Zone-B",response:12,age:23,maint:88},
+ {id:"E043",ts:"2024-05-09",region:"East",sub:"SUB-E01",cause:"Cyber Attack",customers:22000,duration:400,voltage:0.46,freq:47.9,load:600,temp:28.4,wind:12,precip:0,cascaded:1,severity:"Critical",zone:"Zone-C",response:6,age:16,maint:92},
+ {id:"E044",ts:"2024-05-12",region:"West",sub:"SUB-W02",cause:"Tree Contact",customers:5800,duration:60,voltage:0.90,freq:49.7,load:270,temp:18.6,wind:40,precip:12,cascaded:0,severity:"Minor",zone:"Zone-D",response:24,age:8,maint:16},
+ {id:"E045",ts:"2024-05-15",region:"Central",sub:"SUB-C03",cause:"Lightning",customers:15200,duration:130,voltage:0.78,freq:49.2,load:450,temp:24.7,wind:58,precip:65,cascaded:0,severity:"Moderate",zone:"Zone-A",response:17,age:13,maint:38},
+ {id:"E046",ts:"2024-05-18",region:"North",sub:"SUB-N01",cause:"Equipment Failure",customers:30000,duration:275,voltage:0.59,freq:48.5,load:650,temp:14.2,wind:18,precip:0,cascaded:1,severity:"Major",zone:"Zone-B",response:11,age:21,maint:80},
+ {id:"E047",ts:"2024-05-21",region:"South",sub:"SUB-S03",cause:"Overload",customers:13500,duration:90,voltage:0.84,freq:49.4,load:400,temp:26.8,wind:8,precip:0,cascaded:0,severity:"Moderate",zone:"Zone-C",response:22,age:6,maint:14},
+ {id:"E048",ts:"2024-05-24",region:"East",sub:"SUB-E02",cause:"Storm",customers:44000,duration:360,voltage:0.49,freq:47.8,load:840,temp:20.5,wind:88,precip:72,cascaded:1,severity:"Critical",zone:"Zone-D",response:8,age:12,maint:175},
+ {id:"E049",ts:"2024-05-27",region:"West",sub:"SUB-W01",cause:"Equipment Failure",customers:17200,duration:200,voltage:0.68,freq:48.8,load:490,temp:15.8,wind:20,precip:0,cascaded:1,severity:"Major",zone:"Zone-A",response:13,age:20,maint:68},
+ {id:"E050",ts:"2024-05-30",region:"Central",sub:"SUB-C02",cause:"Tree Contact",customers:7100,duration:70,voltage:0.88,freq:49.6,load:310,temp:22.4,wind:42,precip:18,cascaded:0,severity:"Minor",zone:"Zone-B",response:21,age:9,maint:22},
+ {id:"E051",ts:"2024-06-02",region:"North",sub:"SUB-N02",cause:"Lightning",customers:16500,duration:135,voltage:0.76,freq:49.1,load:460,temp:28.7,wind:48,precip:60,cascaded:0,severity:"Moderate",zone:"Zone-C",response:17,age:14,maint:36},
+ {id:"E052",ts:"2024-06-05",region:"South",sub:"SUB-S01",cause:"Cyber Attack",customers:32000,duration:460,voltage:0.43,freq:47.7,load:710,temp:24.2,wind:15,precip:0,cascaded:1,severity:"Critical",zone:"Zone-D",response:6,age:17,maint:98},
+ {id:"E053",ts:"2024-06-08",region:"East",sub:"SUB-E03",cause:"Storm",customers:61000,duration:520,voltage:0.39,freq:47.3,load:1050,temp:18.5,wind:110,precip:92,cascaded:1,severity:"Critical",zone:"Zone-A",response:7,age:13,maint:240},
+ {id:"E054",ts:"2024-06-11",region:"West",sub:"SUB-W03",cause:"Equipment Failure",customers:23000,duration:250,voltage:0.62,freq:48.6,load:560,temp:12.8,wind:18,precip:0,cascaded:1,severity:"Major",zone:"Zone-B",response:12,age:22,maint:85},
+ {id:"E055",ts:"2024-06-14",region:"Central",sub:"SUB-C01",cause:"Overload",customers:10200,duration:80,voltage:0.85,freq:49.5,load:380,temp:30.5,wind:8,precip:0,cascaded:0,severity:"Minor",zone:"Zone-C",response:23,age:6,maint:12},
+ {id:"E056",ts:"2024-06-17",region:"North",sub:"SUB-N03",cause:"Tree Contact",customers:8900,duration:88,voltage:0.86,freq:49.5,load:340,temp:25.6,wind:38,precip:22,cascaded:0,severity:"Minor",zone:"Zone-D",response:20,age:10,maint:26},
+ {id:"E057",ts:"2024-06-20",region:"South",sub:"SUB-S02",cause:"Equipment Failure",customers:27000,duration:285,voltage:0.57,freq:48.4,load:620,temp:22.1,wind:15,precip:0,cascaded:1,severity:"Major",zone:"Zone-A",response:11,age:24,maint:90},
+ {id:"E058",ts:"2024-06-23",region:"East",sub:"SUB-E01",cause:"Lightning",customers:14800,duration:125,voltage:0.79,freq:49.2,load:440,temp:28.9,wind:52,precip:68,cascaded:0,severity:"Moderate",zone:"Zone-B",response:17,age:13,maint:34},
+ {id:"E059",ts:"2024-06-26",region:"West",sub:"SUB-W02",cause:"Storm",customers:49000,duration:410,voltage:0.46,freq:47.6,load:880,temp:18.4,wind:95,precip:85,cascaded:1,severity:"Critical",zone:"Zone-C",response:8,age:12,maint:195},
+ {id:"E060",ts:"2024-06-29",region:"Central",sub:"SUB-C03",cause:"Equipment Failure",customers:19000,duration:215,voltage:0.67,freq:48.8,load:500,temp:24.6,wind:18,precip:0,cascaded:1,severity:"Major",zone:"Zone-D",response:13,age:21,maint:72}
+];
+
+let filteredData = [...RAW];
+let charts = {};
+let simRunning = false;
+let simInterval = null;
+
+// ═══════════════════════════════════════════
+// ANIMATED BACKGROUND
+// ═══════════════════════════════════════════
+const bgCanvas = document.getElementById('bg-canvas');
+const bgCtx = bgCanvas.getContext('2d');
+
+function resizeBg() {
+  bgCanvas.width = window.innerWidth;
+  bgCanvas.height = window.innerHeight;
+}
+resizeBg();
+window.addEventListener('resize', resizeBg);
+
+const GRID_LINES = [];
+const PARTICLES = [];
+const SPARKS = [];
+
+for(let i = 0; i < 20; i++) {
+  GRID_LINES.push({
+    x: Math.random() * window.innerWidth,
+    y: Math.random() * window.innerHeight,
+    vx: (Math.random()-0.5)*0.3,
+    vy: (Math.random()-0.5)*0.3,
+    len: 30 + Math.random()*80,
+    alpha: 0.03 + Math.random()*0.08,
+    col: Math.random() > 0.5 ? '0,245,255' : '123,47,255'
+  });
+}
+
+for(let i = 0; i < 60; i++) {
+  PARTICLES.push({
+    x: Math.random() * window.innerWidth,
+    y: Math.random() * window.innerHeight,
+    r: 0.5 + Math.random()*2,
+    vx: (Math.random()-0.5)*0.4,
+    vy: (Math.random()-0.5)*0.4,
+    alpha: 0.1 + Math.random()*0.5,
+    col: ['0,245,255','170,255,0','255,215,0','123,47,255','255,69,0'][Math.floor(Math.random()*5)]
+  });
+}
+
+let bgFrame = 0;
+function animateBg() {
+  bgCtx.clearRect(0,0,bgCanvas.width,bgCanvas.height);
+
+  // Grid dots
+  bgCtx.save();
+  const gSize = 60;
+  for(let x = 0; x < bgCanvas.width; x += gSize) {
+    for(let y = 0; y < bgCanvas.height; y += gSize) {
+      const dist = Math.sin(bgFrame*0.01 + x*0.01) * Math.cos(bgFrame*0.008 + y*0.01);
+      bgCtx.globalAlpha = 0.04 + Math.abs(dist)*0.06;
+      bgCtx.fillStyle = '#00f5ff';
+      bgCtx.fillRect(x-0.5, y-0.5, 1, 1);
+    }
+  }
+
+  // Grid lines
+  bgCtx.lineWidth = 0.5;
+  for(const l of GRID_LINES) {
+    l.x += l.vx; l.y += l.vy;
+    if(l.x < 0) l.x = bgCanvas.width;
+    if(l.x > bgCanvas.width) l.x = 0;
+    if(l.y < 0) l.y = bgCanvas.height;
+    if(l.y > bgCanvas.height) l.y = 0;
+
+    bgCtx.globalAlpha = l.alpha;
+    bgCtx.strokeStyle = `rgba(${l.col},1)`;
+    bgCtx.beginPath();
+    bgCtx.moveTo(l.x, l.y);
+    bgCtx.lineTo(l.x + l.len * Math.cos(bgFrame*0.01), l.y + l.len * Math.sin(bgFrame*0.008));
+    bgCtx.stroke();
+  }
+
+  // Particles
+  for(const p of PARTICLES) {
+    p.x += p.vx; p.y += p.vy;
+    if(p.x < 0) p.x = bgCanvas.width;
+    if(p.x > bgCanvas.width) p.x = 0;
+    if(p.y < 0) p.y = bgCanvas.height;
+    if(p.y > bgCanvas.height) p.y = 0;
+
+    bgCtx.globalAlpha = p.alpha * (0.5 + 0.5*Math.sin(bgFrame*0.02 + p.x));
+    bgCtx.fillStyle = `rgba(${p.col},1)`;
+    bgCtx.beginPath();
+    bgCtx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+    bgCtx.fill();
+  }
+
+  // Occasional lightning bolt effect
+  if(bgFrame % 120 === 0) {
+    drawLightning(bgCtx,
+      Math.random()*bgCanvas.width, 0,
+      Math.random()*bgCanvas.width, bgCanvas.height*0.3);
+  }
+
+  bgCtx.restore();
+  bgFrame++;
+  requestAnimationFrame(animateBg);
+}
+
+function drawLightning(ctx, x1, y1, x2, y2, depth=0) {
+  if(depth > 3) return;
+  ctx.globalAlpha = 0.15 / (depth+1);
+  ctx.strokeStyle = '#00f5ff';
+  ctx.lineWidth = 2 / (depth+1);
+  ctx.shadowBlur = 10;
+  ctx.shadowColor = '#00f5ff';
+  ctx.beginPath();
+  const mx = (x1+x2)/2 + (Math.random()-0.5)*40;
+  const my = (y1+y2)/2 + (Math.random()-0.5)*40;
+  ctx.moveTo(x1,y1); ctx.lineTo(mx,my); ctx.lineTo(x2,y2);
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  if(Math.random() > 0.5) drawLightning(ctx, mx, my, mx+(Math.random()-0.5)*60, my+30, depth+1);
+}
+
+animateBg();
+
+// ═══════════════════════════════════════════
+// CLOCK
+// ═══════════════════════════════════════════
+function updateClock() {
+  const now = new Date();
+  const ts = now.toLocaleTimeString('en-US', {hour12: false});
+  document.getElementById('header-clock').textContent = ts;
+  document.getElementById('footer-time').textContent = 'LAST UPDATE: ' + ts;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ═══════════════════════════════════════════
+// CHART DEFAULTS
+// ═══════════════════════════════════════════
+const BASE_OPTS = {
+  animation: { duration: 800, easing: 'easeInOutQuart' },
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: {
+      labels: {
+        color: '#6a8fa8',
+        font: { family: "'Share Tech Mono', monospace", size: 9 },
+        boxWidth: 10, padding: 10
+      }
+    },
+    tooltip: {
+      backgroundColor: 'rgba(0,8,25,0.95)',
+      borderColor: '#00f5ff',
+      borderWidth: 1,
+      titleColor: '#00f5ff',
+      bodyColor: '#e8f4ff',
+      titleFont: { family: "'Orbitron', sans-serif", size: 9 },
+      bodyFont: { family: "'Share Tech Mono', monospace", size: 9 },
+      padding: 10
+    }
+  },
+  scales: {
+    x: {
+      grid: { color: 'rgba(0,245,255,0.06)' },
+      ticks: { color: '#6a8fa8', font: { family: "'Share Tech Mono', monospace", size: 9 } }
+    },
+    y: {
+      grid: { color: 'rgba(0,245,255,0.06)' },
+      ticks: { color: '#6a8fa8', font: { family: "'Share Tech Mono', monospace", size: 9 } }
+    }
+  }
+};
+
+function deepMerge(a, b) {
+  const out = {...a};
+  for(const k in b) {
+    if(b[k] && typeof b[k] === 'object' && !Array.isArray(b[k])) out[k] = deepMerge(a[k]||{}, b[k]);
+    else out[k] = b[k];
+  }
+  return out;
+}
+
+function opts(extra={}) { return deepMerge(BASE_OPTS, extra); }
+
+// ═══════════════════════════════════════════
+// UTILITY
+// ═══════════════════════════════════════════
+const REGION_COLORS = { North:'#00f5ff', South:'#ff4500', East:'#aaff00', West:'#7b2fff', Central:'#ffd700' };
+const SEV_COLORS = { Critical:'#ff1a1a', Major:'#ff8800', Moderate:'#00f5ff', Minor:'#aaff00' };
+const CAUSE_COLORS = {
+  'Storm':'#00f5ff', 'Equipment Failure':'#ff4500', 'Overload':'#ffd700',
+  'Cyber Attack':'#7b2fff', 'Lightning':'#aaff00', 'Tree Contact':'#ff8800'
+};
+
+function groupBy(arr, key) {
+  return arr.reduce((acc, r) => { (acc[r[key]] = acc[r[key]] || []).push(r); return acc; }, {});
+}
+
+function sum(arr, key) { return arr.reduce((s,r) => s + r[key], 0); }
+function avg(arr, key) { return arr.length ? sum(arr, key) / arr.length : 0; }
+
+// ═══════════════════════════════════════════
+// SEVERITY BARS
+// ═══════════════════════════════════════════
+function renderSevBars() {
+  const g = groupBy(filteredData, 'severity');
+  const sevs = ['Critical','Major','Moderate','Minor'];
+  const total = filteredData.length;
+  const el = document.getElementById('sev-bars');
+  el.innerHTML = sevs.map(s => {
+    const cnt = (g[s]||[]).length;
+    const pct = total ? (cnt/total*100) : 0;
+    const cols = {Critical:'#ff1a1a',Major:'#ff8800',Moderate:'#00f5ff',Minor:'#aaff00'};
+    return `<div class="sev-bar">
+      <div class="sev-label">${s}</div>
+      <div class="sev-track"><div class="sev-fill" style="width:${pct}%;background:${cols[s]};box-shadow:0 0 6px ${cols[s]}"></div></div>
+      <div class="sev-count" style="color:${cols[s]}">${cnt}</div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════
+// OUTAGE LIST
+// ═══════════════════════════════════════════
+function renderOutageList() {
+  const el = document.getElementById('outage-list');
+  const top = filteredData.slice(0, 8);
+  el.innerHTML = top.map(r => `
+    <div class="outage-item" onclick="showNotif('${r.id}','${r.region}','${r.cause}',${r.customers})">
+      <div>
+        <div class="outage-id">${r.id}</div>
+        <div class="outage-region">${r.region} · ${r.sub}</div>
+      </div>
+      <div>
+        <span class="outage-badge ob-${r.severity.toLowerCase()}">${r.severity.toUpperCase()}</span>
+        ${r.cascaded ? '<span class="cascade-indicator"></span>' : '<span class="no-cascade"></span>'}
+      </div>
+    </div>
+  `).join('');
+}
+
+// ═══════════════════════════════════════════
+// ZONE ARCS
+// ═══════════════════════════════════════════
+function renderZoneArcs() {
+  const zones = ['Zone-A','Zone-B','Zone-C','Zone-D'];
+  const zoneColors = {'Zone-A':'#ff1a1a','Zone-B':'#ff8800','Zone-C':'#00f5ff','Zone-D':'#aaff00'};
+  const el = document.getElementById('zone-arcs');
+  const g = groupBy(filteredData, 'zone');
+
+  el.innerHTML = zones.map(z => {
+    const events = (g[z]||[]).length;
+    const maxEvt = 18;
+    const pct = Math.min(events/maxEvt, 1);
+    const r = 30, cx = 40, cy = 40;
+    const circ = 2*Math.PI*r;
+    const dash = pct * circ;
+    const col = zoneColors[z];
+    return `<div class="arc-item">
+      <svg class="arc-svg" viewBox="0 0 80 80">
+        <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="6"/>
+        <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${col}" stroke-width="6"
+          stroke-dasharray="${dash} ${circ}" stroke-dashoffset="${circ/4}"
+          stroke-linecap="round" style="filter:drop-shadow(0 0 4px ${col})" >
+          <animateTransform attributeName="transform" type="rotate" from="-90 40 40" to="-90 40 40" dur="0s"/>
+        </circle>
+        <text x="${cx}" y="${cy+5}" text-anchor="middle" fill="${col}" style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700">${events}</text>
+      </svg>
+      <div class="arc-lbl">${z}</div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════
+// VOLTAGE BARS
+// ═══════════════════════════════════════════
+function renderVoltageBars() {
+  const regions = ['North','South','East','West','Central'];
+  const g = groupBy(filteredData, 'region');
+  const el = document.getElementById('voltage-bars');
+  el.innerHTML = regions.map(reg => {
+    const d = g[reg]||[];
+    const avgV = avg(d, 'voltage');
+    const pct = avgV * 100;
+    const col = avgV < 0.5 ? '#ff1a1a' : avgV < 0.7 ? '#ff8800' : '#aaff00';
+    return `<div class="voltage-bar-wrap">
+      <div class="voltage-label"><span>${reg}</span><span style="color:${col}">${avgV.toFixed(2)} pu</span></div>
+      <div class="voltage-track"><div class="voltage-fill" style="width:${pct}%;background:${col};box-shadow:0 0 5px ${col}"></div></div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════
+// CHART BUILDERS
+// ═══════════════════════════════════════════
+
+function buildTimelineChart() {
+  const ctx = document.getElementById('timeline-chart');
+  if(charts.timeline) { charts.timeline.destroy(); }
+
+  // Sort by date
+  const sorted = [...filteredData].sort((a,b) => a.ts.localeCompare(b.ts));
+  const labels = sorted.map(r => r.ts.slice(5)); // MM-DD
+  const customers = sorted.map(r => r.customers/1000);
+  const durations = sorted.map(r => r.duration);
+  const cascades = sorted.map(r => r.cascaded * 50);
+
+  charts.timeline = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Customers(K)', data: customers, backgroundColor: 'rgba(0,245,255,0.15)', borderColor: '#00f5ff', borderWidth: 1.5, yAxisID: 'y', type: 'bar' },
+        { label: 'Duration(min)', data: durations, borderColor: '#ff4500', backgroundColor: 'transparent', borderWidth: 2, type: 'line', yAxisID: 'y1', tension: 0.4, pointRadius: 2, pointBackgroundColor: '#ff4500' },
+        { label: 'Cascade', data: cascades, borderColor: '#ffd700', backgroundColor: 'rgba(255,215,0,0.1)', borderWidth: 0, type: 'bar', yAxisID: 'y', barPercentage: 0.4 }
+      ]
+    },
+    options: opts({
+      plugins: { legend: BASE_OPTS.plugins.legend },
+      scales: {
+        x: { ...BASE_OPTS.scales.x, ticks: { ...BASE_OPTS.scales.x.ticks, maxRotation: 45, maxTicksLimit: 15 } },
+        y: { ...BASE_OPTS.scales.y, position: 'left', title: { display: true, text: 'Customers(K)', color: '#6a8fa8', font: {size:8} } },
+        y1: { ...BASE_OPTS.scales.y, position: 'right', title: { display: true, text: 'Duration', color: '#6a8fa8', font: {size:8} }, grid: {drawOnChartArea:false} }
+      }
+    })
+  });
+}
+
+function buildCauseChart() {
+  const ctx = document.getElementById('cause-chart');
+  if(charts.cause) charts.cause.destroy();
+  const g = groupBy(filteredData, 'cause');
+  const causes = Object.keys(g);
+  charts.cause = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: causes,
+      datasets: [{
+        data: causes.map(c => g[c].length),
+        backgroundColor: causes.map(c => CAUSE_COLORS[c]+'44'),
+        borderColor: causes.map(c => CAUSE_COLORS[c]),
+        borderWidth: 2,
+        hoverOffset: 8
+      }]
+    },
+    options: {
+      ...opts({}),
+      cutout: '60%',
+      plugins: {
+        legend: { position: 'bottom', labels: BASE_OPTS.plugins.legend.labels },
+        tooltip: BASE_OPTS.plugins.tooltip
+      }
+    }
+  });
+}
+
+function buildRegionBar() {
+  const ctx = document.getElementById('region-bar');
+  if(charts.regionBar) charts.regionBar.destroy();
+  const regions = ['North','South','East','West','Central'];
+  const g = groupBy(filteredData, 'region');
+  charts.regionBar = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: regions,
+      datasets: [{
+        label: 'Total Customers Affected',
+        data: regions.map(r => sum(g[r]||[], 'customers')/1000),
+        backgroundColor: regions.map(r => REGION_COLORS[r]+'44'),
+        borderColor: regions.map(r => REGION_COLORS[r]),
+        borderWidth: 2,
+        borderRadius: 3
+      },{
+        label: 'Avg Duration (min)',
+        data: regions.map(r => avg(g[r]||[], 'duration')),
+        backgroundColor: 'rgba(123,47,255,0.2)',
+        borderColor: '#7b2fff',
+        borderWidth: 2,
+        borderRadius: 3
+      }]
+    },
+    options: opts({
+      scales: {
+        y: { ...BASE_OPTS.scales.y, title: { display:true, text:'Customers(K) / Duration', color:'#6a8fa8', font:{size:8} } }
+      }
+    })
+  });
+}
+
+function buildRadarChart() {
+  const ctx = document.getElementById('radar-chart');
+  if(charts.radar) charts.radar.destroy();
+  const regions = ['North','South','East','West','Central'];
+  const g = groupBy(filteredData, 'region');
+  const normalize = (vals) => { const mx = Math.max(...vals); return vals.map(v=>mx?v/mx:0); };
+
+  const customersNorm = normalize(regions.map(r => sum(g[r]||[], 'customers')));
+  const durationNorm = normalize(regions.map(r => avg(g[r]||[], 'duration')));
+  const cascadeNorm = normalize(regions.map(r => sum(g[r]||[], 'cascaded')));
+  const eventsNorm = normalize(regions.map(r => (g[r]||[]).length));
+
+  charts.radar = new Chart(ctx, {
+    type: 'radar',
+    data: {
+      labels: regions,
+      datasets: [
+        { label: 'Customers', data: customersNorm, borderColor:'#00f5ff', backgroundColor:'rgba(0,245,255,0.1)', pointBackgroundColor:'#00f5ff', borderWidth:2 },
+        { label: 'Duration', data: durationNorm, borderColor:'#ff4500', backgroundColor:'rgba(255,69,0,0.1)', pointBackgroundColor:'#ff4500', borderWidth:2 },
+        { label: 'Cascades', data: cascadeNorm, borderColor:'#ffd700', backgroundColor:'rgba(255,215,0,0.1)', pointBackgroundColor:'#ffd700', borderWidth:2 },
+        { label: 'Events', data: eventsNorm, borderColor:'#aaff00', backgroundColor:'rgba(170,255,0,0.1)', pointBackgroundColor:'#aaff00', borderWidth:2 }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: BASE_OPTS.animation,
+      plugins: { legend: BASE_OPTS.plugins.legend, tooltip: BASE_OPTS.plugins.tooltip },
+      scales: {
+        r: {
+          grid: { color: 'rgba(0,245,255,0.08)' },
+          angleLines: { color: 'rgba(0,245,255,0.1)' },
+          ticks: { color: '#6a8fa8', font: { family:"'Share Tech Mono',monospace", size:8 }, backdropColor:'transparent' },
+          pointLabels: { color: '#e8f4ff', font: { family:"'Share Tech Mono',monospace", size:9 } }
+        }
+      }
+    }
+  });
+}
+
+function buildBubbleChart() {
+  const ctx = document.getElementById('bubble-chart');
+  if(charts.bubble) charts.bubble.destroy();
+  const regions = ['North','South','East','West','Central'];
+  const g = groupBy(filteredData, 'region');
+
+  charts.bubble = new Chart(ctx, {
+    type: 'bubble',
+    data: {
+      datasets: regions.map(r => ({
+        label: r,
+        data: (g[r]||[]).map(ev => ({
+          x: ev.duration,
+          y: ev.customers/1000,
+          r: ev.cascaded ? 10 : 5
+        })),
+        backgroundColor: REGION_COLORS[r]+'55',
+        borderColor: REGION_COLORS[r],
+        borderWidth: 1.5
+      }))
+    },
+    options: opts({
+      scales: {
+        x: { ...BASE_OPTS.scales.x, title:{display:true,text:'Duration (min)',color:'#6a8fa8',font:{size:8}} },
+        y: { ...BASE_OPTS.scales.y, title:{display:true,text:'Customers (K)',color:'#6a8fa8',font:{size:8}} }
+      },
+      plugins: { legend: BASE_OPTS.plugins.legend, tooltip: BASE_OPTS.plugins.tooltip }
+    })
+  });
+}
+
+function buildStackedBar() {
+  const ctx = document.getElementById('stacked-bar');
+  if(charts.stacked) charts.stacked.destroy();
+  const months = ['Jan','Feb','Mar','Apr','May','Jun'];
+  const sevs = ['Critical','Major','Moderate','Minor'];
+  const sevColors = {'Critical':'#ff1a1a','Major':'#ff8800','Moderate':'#00f5ff','Minor':'#aaff00'};
+
+  const grouped = filteredData.reduce((acc, r) => {
+    const m = parseInt(r.ts.slice(5,7))-1;
+    if(!acc[m]) acc[m] = {Critical:0,Major:0,Moderate:0,Minor:0};
+    acc[m][r.severity]++;
+    return acc;
+  }, {});
+
+  charts.stacked = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: months,
+      datasets: sevs.map(s => ({
+        label: s,
+        data: months.map((_,i) => (grouped[i]||{})[s]||0),
+        backgroundColor: sevColors[s]+'88',
+        borderColor: sevColors[s],
+        borderWidth: 1,
+        borderRadius: 2
+      }))
+    },
+    options: opts({
+      scales: {
+        x: { ...BASE_OPTS.scales.x, stacked: true },
+        y: { ...BASE_OPTS.scales.y, stacked: true, title:{display:true,text:'Event Count',color:'#6a8fa8',font:{size:8}} }
+      }
+    })
+  });
+}
+
+function buildMiniFreq() {
+  const ctx = document.getElementById('mini-freq');
+  if(charts.miniFreq) charts.miniFreq.destroy();
+  const freqs = filteredData.slice(0,20).map(r => r.freq);
+  charts.miniFreq = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: freqs.map((_,i)=>i),
+      datasets: [{
+        data: freqs,
+        borderColor: '#aaff00',
+        backgroundColor: 'rgba(170,255,0,0.08)',
+        borderWidth: 1.5,
+        fill: true,
+        tension: 0.5,
+        pointRadius: 0
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: BASE_OPTS.animation,
+      plugins: { legend:{display:false}, tooltip: BASE_OPTS.plugins.tooltip },
+      scales: {
+        x: { display:false },
+        y: {
+          grid: { color:'rgba(170,255,0,0.05)' },
+          ticks: { color:'#6a8fa8', font:{family:"'Share Tech Mono',monospace",size:8} },
+          min: 47, max: 50.5
+        }
+      }
+    }
+  });
+}
+
+function buildResponseChart() {
+  const ctx = document.getElementById('response-chart');
+  if(charts.response) charts.response.destroy();
+  const g = groupBy(filteredData, 'region');
+  const regions = ['North','South','East','West','Central'];
+  charts.response = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: regions,
+      datasets: [{
+        label: 'Avg Response (min)',
+        data: regions.map(r => Math.round(avg(g[r]||[], 'response'))),
+        backgroundColor: regions.map(r => REGION_COLORS[r]+'55'),
+        borderColor: regions.map(r => REGION_COLORS[r]),
+        borderWidth: 1.5,
+        borderRadius: 3
+      }]
+    },
+    options: opts({
+      indexAxis: 'y',
+      scales: {
+        x: { ...BASE_OPTS.scales.x },
+        y: { ...BASE_OPTS.scales.y }
+      },
+      plugins: { legend:{display:false}, tooltip: BASE_OPTS.plugins.tooltip }
+    })
+  });
+}
+
+function buildCauseDur() {
+  const ctx = document.getElementById('cause-dur');
+  if(charts.causeDur) charts.causeDur.destroy();
+  const g = groupBy(filteredData, 'cause');
+  const causes = Object.keys(CAUSE_COLORS);
+  charts.causeDur = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: causes.map(c => c.split(' ')[0]),
+      datasets: [{
+        label: 'Avg Duration (min)',
+        data: causes.map(c => Math.round(avg(g[c]||[], 'duration'))),
+        backgroundColor: causes.map(c => CAUSE_COLORS[c]+'44'),
+        borderColor: causes.map(c => CAUSE_COLORS[c]),
+        borderWidth: 1.5,
+        borderRadius: 3
+      }]
+    },
+    options: opts({
+      plugins: { legend:{display:false}, tooltip: BASE_OPTS.plugins.tooltip }
+    })
+  });
+}
+
+// ═══ PROPAGATION TAB CHARTS ═══
+
+function buildGridMap() {
+  const svg = d3.select('#grid-map-svg');
+  svg.selectAll('*').remove();
+
+  const nodes = [
+    {id:'SUB-N01',x:200,y:50,region:'North',failures:3},{id:'SUB-N02',x:280,y:80,region:'North',failures:2},{id:'SUB-N03',x:160,y:100,region:'North',failures:2},
+    {id:'SUB-S01',x:220,y:230,region:'South',failures:2},{id:'SUB-S02',x:300,y:210,region:'South',failures:3},{id:'SUB-S03',x:160,y:240,region:'South',failures:2},
+    {id:'SUB-E01',x:480,y:130,region:'East',failures:2},{id:'SUB-E02',x:520,y:80,region:'East',failures:2},{id:'SUB-E03',x:500,y:180,region:'East',failures:3},
+    {id:'SUB-W01',x:80,y:130,region:'West',failures:3},{id:'SUB-W02',x:50,y:80,region:'West',failures:2},{id:'SUB-W03',x:60,y:190,region:'West',failures:3},
+    {id:'SUB-C01',x:300,y:140,region:'Central',failures:2},{id:'SUB-C02',x:340,y:100,region:'Central',failures:2},{id:'SUB-C03',x:320,y:180,region:'Central',failures:2},
+    {id:'GRID-HUB',x:290,y:140,region:'Hub',failures:0}
+  ];
+
+  const links = [
+    {s:'SUB-N01',t:'GRID-HUB'},{s:'SUB-N02',t:'GRID-HUB'},{s:'SUB-N03',t:'GRID-HUB'},
+    {s:'SUB-S01',t:'GRID-HUB'},{s:'SUB-S02',t:'GRID-HUB'},{s:'SUB-S03',t:'GRID-HUB'},
+    {s:'SUB-E01',t:'GRID-HUB'},{s:'SUB-E02',t:'GRID-HUB'},{s:'SUB-E03',t:'GRID-HUB'},
+    {s:'SUB-W01',t:'GRID-HUB'},{s:'SUB-W02',t:'GRID-HUB'},{s:'SUB-W03',t:'GRID-HUB'},
+    {s:'SUB-C01',t:'GRID-HUB'},{s:'SUB-C02',t:'GRID-HUB'},{s:'SUB-C03',t:'GRID-HUB'},
+    {s:'SUB-N01',t:'SUB-N02'},{s:'SUB-S01',t:'SUB-S02'},{s:'SUB-E01',t:'SUB-E02'},{s:'SUB-W01',t:'SUB-W02'},
+    {s:'SUB-C01',t:'SUB-C02'},{s:'SUB-C02',t:'SUB-C03'}
+  ];
+
+  const tooltip = document.getElementById('tooltip');
+
+  // Draw links
+  links.forEach(l => {
+    const s = nodes.find(n=>n.id===l.s), t = nodes.find(n=>n.id===l.t);
+    if(!s||!t) return;
+    const line = svg.append('line')
+      .attr('x1',s.x).attr('y1',s.y).attr('x2',t.x).attr('y2',t.y)
+      .attr('stroke','rgba(0,245,255,0.15)').attr('stroke-width',1)
+      .attr('stroke-dasharray','4,4')
+      .attr('class','flow-line');
+  });
+
+  // Draw nodes
+  const regColors = {'North':'#00f5ff','South':'#ff4500','East':'#aaff00','West':'#7b2fff','Central':'#ffd700','Hub':'#ffffff'};
+
+  nodes.forEach(n => {
+    const col = n.id==='GRID-HUB' ? '#fff' : regColors[n.region];
+    const r = n.id==='GRID-HUB' ? 16 : 8 + n.failures*2;
+    const isHighRisk = n.failures >= 3;
+
+    // Pulse ring for high risk
+    if(isHighRisk) {
+      svg.append('circle')
+        .attr('cx',n.x).attr('cy',n.y).attr('r',r+6)
+        .attr('fill','none').attr('stroke',isHighRisk?'#ff1a1a':'#ff8800')
+        .attr('stroke-width',1).attr('opacity',0.5)
+        .append('animate')
+        .attr('attributeName','r').attr('values',`${r+4};${r+14};${r+4}`)
+        .attr('dur','2s').attr('repeatCount','indefinite');
+    }
+
+    svg.append('circle')
+      .attr('cx',n.x).attr('cy',n.y).attr('r',r)
+      .attr('fill', isHighRisk ? 'rgba(255,26,26,0.2)' : `${col}22`)
+      .attr('stroke', isHighRisk ? '#ff1a1a' : col)
+      .attr('stroke-width',2)
+      .style('cursor','pointer')
+      .style('filter',`drop-shadow(0 0 6px ${isHighRisk?'#ff1a1a':col})`)
+      .on('mousemove', function(e) {
+        tooltip.style.display='block';
+        tooltip.style.left=(e.clientX+15)+'px';
+        tooltip.style.top=(e.clientY-60)+'px';
+        tooltip.innerHTML=`
+          <div class="tooltip-title">${n.id}</div>
+          <div class="tooltip-row"><span class="tooltip-key">REGION</span><span class="tooltip-val">${n.region}</span></div>
+          <div class="tooltip-row"><span class="tooltip-key">FAILURES</span><span class="tooltip-val">${n.failures}</span></div>
+          <div class="tooltip-row"><span class="tooltip-key">STATUS</span><span class="tooltip-val" style="color:${isHighRisk?'#ff1a1a':'#aaff00'}">${isHighRisk?'HIGH RISK':'STABLE'}</span></div>`;
+      })
+      .on('mouseleave', () => { tooltip.style.display='none'; });
+
+    svg.append('text')
+      .attr('x',n.x).attr('y',n.y - r - 4)
+      .attr('text-anchor','middle')
+      .attr('fill',col)
+      .attr('font-size',8)
+      .attr('font-family','Share Tech Mono, monospace')
+      .text(n.id);
+  });
+}
+
+function buildHeatmapChart() {
+  const ctx = document.getElementById('heatmap-chart');
+  if(charts.heatmap) charts.heatmap.destroy();
+
+  const regions = ['North','South','East','West','Central'];
+  const months = ['Jan','Feb','Mar','Apr','May','Jun'];
+  const g = groupBy(filteredData, 'region');
+
+  // Build matrix: regions x months
+  const matrix = [];
+  regions.forEach((r,ri) => {
+    months.forEach((m,mi) => {
+      const cnt = (g[r]||[]).filter(d => parseInt(d.ts.slice(5,7))-1 === mi).length;
+      matrix.push({x:mi, y:ri, v:cnt});
+    });
+  });
+
+  const maxV = Math.max(...matrix.map(d=>d.v));
+
+  charts.heatmap = new Chart(ctx, {
+    type: 'scatter',
+    data: {
+      datasets: [{
+        data: matrix.map(d => ({x: d.x, y: d.y, r: d.v > 0 ? 8 + d.v*4 : 0})),
+        backgroundColor: matrix.map(d => {
+          const i = d.v / maxV;
+          return `rgba(${Math.round(255*i)},${Math.round(245*(1-i))},${Math.round(255*(1-i))},0.7)`;
+        }),
+        borderColor: matrix.map(d => d.v > 1 ? '#ff4500' : '#00f5ff'),
+        borderWidth: 1
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      animation: BASE_OPTS.animation,
+      plugins: { legend:{display:false}, tooltip: BASE_OPTS.plugins.tooltip },
+      scales: {
+        x: { ...BASE_OPTS.scales.x, min:-0.5, max:5.5, ticks:{...BASE_OPTS.scales.x.ticks, callback:(v)=>months[v]||'' } },
+        y: { ...BASE_OPTS.scales.y, min:-0.5, max:4.5, ticks:{...BASE_OPTS.scales.y.ticks, callback:(v)=>regions[Math.round(v)]||'' } }
+      }
+    }
+  });
+}
+
+function buildPolarChart() {
+  const ctx = document.getElementById('polar-chart');
+  if(charts.polar) charts.polar.destroy();
+  const months = ['Jan','Feb','Mar','Apr','May','Jun'];
+  const cascadeCounts = months.map((_,i) => filteredData.filter(d=>parseInt(d.ts.slice(5,7))-1===i && d.cascaded).length);
+  const nonCasc = months.map((_,i) => filteredData.filter(d=>parseInt(d.ts.slice(5,7))-1===i && !d.cascaded).length);
+
+  charts.polar = new Chart(ctx, {
+    type: 'polarArea',
+    data: {
+      labels: [...months.map(m=>m+' Casc'), ...months.map(m=>m+' Non')],
+      datasets: [{
+        data: [...cascadeCounts, ...nonCasc],
+        backgroundColor: [
+          ...cascadeCounts.map(()=>'rgba(255,26,26,0.4)'),
+          ...nonCasc.map(()=>'rgba(170,255,0,0.3)')
+        ],
+        borderColor: [...cascadeCounts.map(()=>'#ff1a1a'),...nonCasc.map(()=>'#aaff00')],
+        borderWidth: 1.5
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio:false,
+      animation: BASE_OPTS.animation,
+      plugins: {
+        legend: { position:'bottom', labels:{...BASE_OPTS.plugins.legend.labels, font:{...BASE_OPTS.plugins.legend.labels.font, size:7}} },
+        tooltip: BASE_OPTS.plugins.tooltip
+      },
+      scales: {
+        r: {
+          grid:{color:'rgba(0,245,255,0.08)'},
+          ticks:{color:'#6a8fa8',font:{size:7},backdropColor:'transparent'}
+        }
+      }
+    }
+  });
+}
+
+function buildScatterVolt() {
+  const ctx = document.getElementById('scatter-volt');
+  if(charts.scatterVolt) charts.scatterVolt.destroy();
+  const g = groupBy(filteredData, 'region');
+  const regions = ['North','South','East','West','Central'];
+  charts.scatterVolt = new Chart(ctx, {
+    type: 'scatter',
+    data: {
+      datasets: regions.map(r => ({
+        label: r,
+        data: (g[r]||[]).map(d=>({x:d.load, y:d.voltage})),
+        backgroundColor: REGION_COLORS[r]+'66',
+        borderColor: REGION_COLORS[r],
+        pointRadius: 4
+      }))
+    },
+    options: opts({
+      scales:{
+        x:{...BASE_OPTS.scales.x,title:{display:true,text:'Load (MW)',color:'#6a8fa8',font:{size:8}}},
+        y:{...BASE_OPTS.scales.y,title:{display:true,text:'Voltage (pu)',color:'#6a8fa8',font:{size:8}}}
+      }
+    })
+  });
+}
+
+function buildAgeLine() {
+  const ctx = document.getElementById('age-line');
+  if(charts.ageLine) charts.ageLine.destroy();
+  const sorted = [...filteredData].sort((a,b)=>a.age-b.age);
+  charts.ageLine = new Chart(ctx, {
+    type: 'scatter',
+    data: {
+      datasets: [{
+        label: 'Age vs Duration',
+        data: sorted.map(d=>({x:d.age, y:d.duration})),
+        backgroundColor: sorted.map(d => d.cascaded ? '#ff1a1a88' : '#00f5ff55'),
+        borderColor: sorted.map(d => d.cascaded ? '#ff1a1a' : '#00f5ff'),
+        pointRadius: 5,
+        showLine: false
+      }]
+    },
+    options: opts({
+      scales:{
+        x:{...BASE_OPTS.scales.x,title:{display:true,text:'Equipment Age (yrs)',color:'#6a8fa8',font:{size:8}}},
+        y:{...BASE_OPTS.scales.y,title:{display:true,text:'Duration (min)',color:'#6a8fa8',font:{size:8}}}
+      }
+    })
+  });
+}
+
+// ═══ ANALYSIS TAB CHARTS ═══
+
+function buildTempScatter() {
+  const ctx = document.getElementById('temp-scatter');
+  if(charts.tempSc) charts.tempSc.destroy();
+  const g = groupBy(filteredData, 'severity');
+  const sevs = ['Critical','Major','Moderate','Minor'];
+  charts.tempSc = new Chart(ctx, {
+    type: 'scatter',
+    data: {
+      datasets: sevs.map(s=>({
+        label: s,
+        data: (g[s]||[]).map(d=>({x:d.temp, y:d.duration})),
+        backgroundColor: SEV_COLORS[s]+'55',
+        borderColor: SEV_COLORS[s],
+        pointRadius: 5
+      }))
+    },
+    options: opts({
+      scales:{
+        x:{...BASE_OPTS.scales.x,title:{display:true,text:'Temperature (°C)',color:'#6a8fa8',font:{size:8}}},
+        y:{...BASE_OPTS.scales.y,title:{display:true,text:'Duration (min)',color:'#6a8fa8',font:{size:8}}}
+      }
+    })
+  });
+}
+
+function buildWindScatter() {
+  const ctx = document.getElementById('wind-scatter');
+  if(charts.windSc) charts.windSc.destroy();
+  charts.windSc = new Chart(ctx, {
+    type: 'scatter',
+    data: {
+      datasets: [{
+        label: 'Wind vs Customers',
+        data: filteredData.map(d=>({x:d.wind, y:d.customers/1000})),
+        backgroundColor: filteredData.map(d=>d.cascaded?'rgba(255,26,26,0.5)':'rgba(0,245,255,0.4)'),
+        borderColor: filteredData.map(d=>d.cascaded?'#ff1a1a':'#00f5ff'),
+        pointRadius: 5
+      }]
+    },
+    options: opts({
+      scales:{
+        x:{...BASE_OPTS.scales.x,title:{display:true,text:'Wind Speed (km/h)',color:'#6a8fa8',font:{size:8}}},
+        y:{...BASE_OPTS.scales.y,title:{display:true,text:'Customers (K)',color:'#6a8fa8',font:{size:8}}}
+      }
+    })
+  });
+}
+
+function buildMaintBar() {
+  const ctx = document.getElementById('maint-bar');
+  if(charts.maintBar) charts.maintBar.destroy();
+  const g = groupBy(filteredData, 'cause');
+  const causes = Object.keys(CAUSE_COLORS);
+  charts.maintBar = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: causes.map(c=>c.split(' ')[0]),
+      datasets: [{
+        label: 'Avg Maint Gap (days)',
+        data: causes.map(c=>Math.round(avg(g[c]||[], 'maint'))),
+        backgroundColor: causes.map(c=>CAUSE_COLORS[c]+'44'),
+        borderColor: causes.map(c=>CAUSE_COLORS[c]),
+        borderWidth: 1.5,
+        borderRadius: 3
+      }]
+    },
+    options: opts({
+      plugins:{legend:{display:false},tooltip:BASE_OPTS.plugins.tooltip},
+      scales:{y:{...BASE_OPTS.scales.y,title:{display:true,text:'Days',color:'#6a8fa8',font:{size:8}}}}
+    })
+  });
+}
+
+function buildRiskBubble() {
+  const ctx = document.getElementById('risk-bubble');
+  if(charts.riskBub) charts.riskBub.destroy();
+  const subs = ['SUB-N01','SUB-S02','SUB-E03','SUB-W03','SUB-C02'];
+  const g = groupBy(filteredData, 'sub');
+  charts.riskBub = new Chart(ctx, {
+    type: 'bubble',
+    data: {
+      datasets: subs.map((s,i) => {
+        const d = g[s]||[];
+        const freq = d.length;
+        const avgSev = d.reduce((acc,r)=>acc+({Critical:4,Major:3,Moderate:2,Minor:1}[r.severity]||0),0)/Math.max(d.length,1);
+        const cols = ['#ff1a1a','#ff8800','#00f5ff','#7b2fff','#ffd700'];
+        return {
+          label: s,
+          data: [{x:freq, y:avgSev, r:8+freq*3}],
+          backgroundColor: cols[i]+'55',
+          borderColor: cols[i],
+          borderWidth: 2
+        };
+      })
+    },
+    options: opts({
+      scales:{
+        x:{...BASE_OPTS.scales.x,title:{display:true,text:'Event Frequency',color:'#6a8fa8',font:{size:8}}},
+        y:{...BASE_OPTS.scales.y,title:{display:true,text:'Avg Severity Score',color:'#6a8fa8',font:{size:8}}}
+      }
+    })
+  });
+}
+
+function buildRespPie() {
+  const ctx = document.getElementById('resp-pie');
+  if(charts.respPie) charts.respPie.destroy();
+  const g = groupBy(filteredData, 'cause');
+  const causes = Object.keys(CAUSE_COLORS);
+  charts.respPie = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: causes,
+      datasets: [{
+        data: causes.map(c=>Math.round(avg(g[c]||[], 'response'))),
+        backgroundColor: causes.map(c=>CAUSE_COLORS[c]+'44'),
+        borderColor: causes.map(c=>CAUSE_COLORS[c]),
+        borderWidth: 2
+      }]
+    },
+    options: {
+      ...opts({}),
+      cutout:'55%',
+      plugins:{
+        legend:{position:'bottom',labels:{...BASE_OPTS.plugins.legend.labels,font:{...BASE_OPTS.plugins.legend.labels.font,size:7}}},
+        tooltip:BASE_OPTS.plugins.tooltip
+      }
+    }
+  });
+}
+
+// ═══════════════════════════════════════════
+// DATA TABLE
+// ═══════════════════════════════════════════
+function renderTable() {
+  const tbody = document.getElementById('table-body');
+  const count = document.getElementById('rec-count');
+  count.textContent = filteredData.length + ' RECORDS';
+
+  tbody.innerHTML = filteredData.map(r => {
+    const sc = SEV_COLORS[r.severity];
+    return `<tr>
+      <td style="color:var(--plasma);font-family:'Orbitron',sans-serif;font-size:0.58rem">${r.id}</td>
+      <td>${r.ts}</td>
+      <td style="color:${REGION_COLORS[r.region]}">${r.region}</td>
+      <td>${r.sub}</td>
+      <td style="color:${CAUSE_COLORS[r.cause]||'#fff'};white-space:nowrap">${r.cause}</td>
+      <td style="color:var(--volt)">${r.customers.toLocaleString()}</td>
+      <td>${r.duration}</td>
+      <td style="color:${r.voltage<0.5?'#ff1a1a':r.voltage<0.7?'#ff8800':'#aaff00'}">${r.voltage.toFixed(2)}</td>
+      <td style="color:${r.freq<48.5?'#ff1a1a':'#aaff00'}">${r.freq.toFixed(1)}</td>
+      <td>${r.load}</td>
+      <td>${r.temp.toFixed(1)}</td>
+      <td>${r.wind}</td>
+      <td style="color:${r.cascaded?'#ff1a1a':'#aaff00'}">${r.cascaded?'YES':'NO'}</td>
+      <td style="color:${sc};font-weight:700">${r.severity.toUpperCase()}</td>
+      <td>${r.zone}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderDataQuality() {
+  const total = filteredData.length;
+  document.getElementById('dq-report').innerHTML = `
+    <div style="color:var(--volt)">✔ DATASET: SMART GRID OUTAGE 2024</div>
+    <div style="color:var(--plasma)">SOURCE: Synthetic / Kaggle-Inspired</div>
+    <br>
+    <div>TOTAL RECORDS: <span style="color:var(--volt)">${total}</span></div>
+    <div>TOTAL FEATURES: <span style="color:var(--volt)">20</span></div>
+    <div>NULL VALUES: <span style="color:var(--volt)">0</span></div>
+    <div>DUPLICATE ROWS: <span style="color:var(--volt)">0</span></div>
+    <div>DATE RANGE: <span style="color:var(--plasma)">Jan–Jun 2024</span></div>
+    <br>
+    <div style="color:var(--volt)">DATA CLEANING STEPS:</div>
+    <div>• Removed null/empty timestamps</div>
+    <div>• Standardized cause categories</div>
+    <div>• Converted customers to INT</div>
+    <div>• Validated voltage range [0,1]</div>
+    <div>• Frequency threshold: 47–51 Hz</div>
+    <div>• Outlier detection: IQR method</div>
+    <div>• Type casting: cascaded→BOOL</div>
+    <div>• Region normalization: 5 zones</div>
+  `;
+}
+
+function renderFeatStats() {
+  const custs = filteredData.map(r=>r.customers);
+  const durs = filteredData.map(r=>r.duration);
+  const el = document.getElementById('feat-stats');
+  el.innerHTML = `
+    <div style="color:var(--plasma)">CUSTOMERS AFFECTED:</div>
+    <div>Min: <span style="color:var(--volt)">${Math.min(...custs).toLocaleString()}</span></div>
+    <div>Max: <span style="color:var(--volt)">${Math.max(...custs).toLocaleString()}</span></div>
+    <div>Avg: <span style="color:var(--volt)">${Math.round(avg(filteredData,'customers')).toLocaleString()}</span></div>
+    <br>
+    <div style="color:var(--plasma)">DURATION (MIN):</div>
+    <div>Min: <span style="color:var(--volt)">${Math.min(...durs)}</span></div>
+    <div>Max: <span style="color:var(--volt)">${Math.max(...durs)}</span></div>
+    <div>Avg: <span style="color:var(--volt)">${Math.round(avg(filteredData,'duration'))}</span></div>
+    <br>
+    <div style="color:var(--plasma)">VOLTAGE (PU):</div>
+    <div>Min: <span style="color:var(--volt)">${Math.min(...filteredData.map(r=>r.voltage)).toFixed(2)}</span></div>
+    <div>Max: <span style="color:var(--volt)">${Math.max(...filteredData.map(r=>r.voltage)).toFixed(2)}</span></div>
+    <div>Avg: <span style="color:var(--volt)">${avg(filteredData,'voltage').toFixed(3)}</span></div>
+    <br>
+    <div>CASCADE RATE: <span style="color:${filteredData.filter(r=>r.cascaded).length/filteredData.length>0.5?'#ff1a1a':'#aaff00'}">${(filteredData.filter(r=>r.cascaded).length/Math.max(filteredData.length,1)*100).toFixed(1)}%</span></div>
+  `;
+}
+
+function renderDtypeSchema() {
+  const schema = [
+    ['event_id','STRING','Primary Key'],
+    ['timestamp','DATETIME','Event time'],
+    ['region','CATEGORY','5 zones'],
+    ['substation','CATEGORY','12 nodes'],
+    ['cause','CATEGORY','6 types'],
+    ['affected_customers','INT64','Count'],
+    ['duration_minutes','INT64','Minutes'],
+    ['voltage_drop_pv','FLOAT64','0-1 range'],
+    ['frequency_hz','FLOAT64','Hz'],
+    ['load_mw','FLOAT64','Megawatts'],
+    ['temperature_c','FLOAT64','Celsius'],
+    ['wind_speed_kmh','FLOAT64','km/h'],
+    ['cascaded','BOOL','0/1'],
+    ['severity','CATEGORY','4 levels'],
+    ['grid_zone','CATEGORY','A-D'],
+  ];
+  document.getElementById('dtype-schema').innerHTML = schema.map(([col,dtype,note]) =>
+    `<div><span style="color:var(--plasma)">${col}</span> <span style="color:var(--volt)">${dtype}</span> <span style="color:var(--text-dim)">${note}</span></div>`
+  ).join('');
+}
+
+// ═══════════════════════════════════════════
+// KPI UPDATE
+// ═══════════════════════════════════════════
+function updateKPIs() {
+  const total = filteredData.length;
+  const totalCust = sum(filteredData, 'customers');
+  const avgDur = Math.round(avg(filteredData, 'duration'));
+  const cascades = filteredData.filter(r=>r.cascaded).length;
+  const critical = filteredData.filter(r=>r.severity==='Critical').length;
+
+  document.getElementById('kpi-total').textContent = total;
+  document.getElementById('kpi-affected').textContent = (totalCust/1000).toFixed(0)+'K';
+  document.getElementById('kpi-avgdur').textContent = avgDur;
+  document.getElementById('kpi-cascade').textContent = cascades;
+  document.getElementById('hstat-critical').textContent = critical;
+  document.getElementById('hstat-cascades').textContent = cascades;
+  document.getElementById('hstat-customers').textContent = (totalCust/1000).toFixed(0)+'K';
+  document.getElementById('hstat-restored').textContent = Math.round((total-critical)/Math.max(total,1)*100)+'%';
+  document.getElementById('rec-count').textContent = total + ' RECORDS';
+}
+
+// ═══════════════════════════════════════════
+// FILTERS
+// ═══════════════════════════════════════════
+function applyFilters() {
+  const reg = document.getElementById('filter-region').value;
+  const sev = document.getElementById('filter-severity').value;
+  const cause = document.getElementById('filter-cause').value;
+  const month = document.getElementById('filter-month').value;
+
+  filteredData = RAW.filter(r => {
+    if(reg !== 'all' && r.region !== reg) return false;
+    if(sev !== 'all' && r.severity !== sev) return false;
+    if(cause !== 'all' && r.cause !== cause) return false;
+    if(month !== 'all' && parseInt(r.ts.slice(5,7)) !== parseInt(month)) return false;
+    return true;
+  });
+
+  renderAll();
+  showNotifMsg('FILTER APPLIED', `${filteredData.length} records matching criteria`);
+}
+
+function filterBySeverity(sev) {
+  document.getElementById('filter-severity').value = sev;
+  applyFilters();
+}
+
+// ═══════════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════════
+function showTab(name, btn) {
+  document.querySelectorAll('.tab-page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  if(btn) btn.classList.add('active');
+
+  setTimeout(() => {
+    if(name === 'propagation') {
+      buildGridMap();
+      buildHeatmapChart();
+      buildPolarChart();
+      buildScatterVolt();
+      buildAgeLine();
+    } else if(name === 'analysis') {
+      buildTempScatter();
+      buildWindScatter();
+      buildMaintBar();
+      buildRiskBubble();
+      buildRespPie();
+    } else if(name === 'dataset') {
+      renderTable();
+      renderDataQuality();
+      renderFeatStats();
+      renderDtypeSchema();
+    }
+  }, 50);
+}
+
+// ═══════════════════════════════════════════
+// SIMULATION
+// ═══════════════════════════════════════════
+let simIndex = 0;
+function toggleSimulation() {
+  simRunning = !simRunning;
+  const btn = document.getElementById('sim-btn');
+  if(simRunning) {
+    btn.textContent = '⏹ STOP';
+    btn.classList.add('active');
+    simInterval = setInterval(() => {
+      simIndex = (simIndex+1) % RAW.length;
+      const ev = RAW[simIndex];
+      showNotif(ev.id, ev.region, ev.cause, ev.customers);
+    }, 2500);
+  } else {
+    btn.textContent = '▶ SIMULATE';
+    btn.classList.remove('active');
+    clearInterval(simInterval);
+  }
+}
+
+// ═══════════════════════════════════════════
+// NOTIFICATION
+// ═══════════════════════════════════════════
+function showNotif(id, region, cause, customers) {
+  const el = document.getElementById('notif');
+  el.innerHTML = `<strong>⚡ NEW OUTAGE: ${id}</strong>Region: ${region}<br>Cause: ${cause}<br>Affected: ${customers.toLocaleString()} customers`;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 3500);
+}
+
+function showNotifMsg(title, msg) {
+  const el = document.getElementById('notif');
+  el.innerHTML = `<strong>${title}</strong>${msg}`;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+// ═══════════════════════════════════════════
+// EXPORT
+// ═══════════════════════════════════════════
+function exportData() {
+  const headers = ['event_id','timestamp','region','substation','cause','customers','duration','voltage','frequency','load_mw','temp','wind','cascaded','severity','zone','response_min','equip_age','maint_days'];
+  const rows = filteredData.map(r=>[r.id,r.ts,r.region,r.sub,r.cause,r.customers,r.duration,r.voltage,r.freq,r.load,r.temp,r.wind,r.cascaded,r.severity,r.zone,r.response,r.age,r.maint].join(','));
+  const csv = [headers.join(','), ...rows].join('\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'blackout_chain_data_' + filteredData.length + '_records.csv';
+  a.click();
+  showNotifMsg('EXPORT COMPLETE', filteredData.length + ' records exported to CSV');
+}
+
+// ═══════════════════════════════════════════
+// RENDER ALL
+// ═══════════════════════════════════════════
+function renderAll() {
+  updateKPIs();
+  renderSevBars();
+  renderOutageList();
+  renderZoneArcs();
+  renderVoltageBars();
+  buildTimelineChart();
+  buildCauseChart();
+  buildRegionBar();
+  buildRadarChart();
+  buildBubbleChart();
+  buildStackedBar();
+  buildMiniFreq();
+  buildResponseChart();
+  buildCauseDur();
+}
+
+// ═══════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  renderAll();
+
+  // Auto-refresh charts every 30 seconds with animated data fluctuation
+  setInterval(() => {
+    if(simRunning) return;
+    buildMiniFreq();
+  }, 5000);
+});
+</script>
+</body>
+</html>
